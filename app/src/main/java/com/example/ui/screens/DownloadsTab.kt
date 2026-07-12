@@ -126,7 +126,8 @@ fun DownloadsTab(viewModel: MainViewModel) {
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 100.dp)
                 ) {
                     if (activeQueue.isNotEmpty()) {
                         item {

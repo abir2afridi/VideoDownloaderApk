@@ -64,85 +64,10 @@ class MainActivity : ComponentActivity() {
             ) {
                 var currentTab by remember { mutableStateOf("Home") }
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    bottomBar = {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .navigationBarsPadding()
-                                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("bottom_nav_bar"),
-                                shape = RoundedCornerShape(24.dp),
-                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
-                                tonalElevation = 3.dp,
-                                border = BorderStroke(
-                                    width = 1.dp,
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
-                                ),
-                                shadowElevation = 8.dp
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp, horizontal = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceEvenly,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    FloatingNavItem(
-                                        selected = currentTab == "Home",
-                                        onClick = { currentTab = "Home" },
-                                        filledIcon = Icons.Filled.Home,
-                                        outlinedIcon = Icons.Outlined.Home,
-                                        label = "Home",
-                                        modifier = Modifier.testTag("nav_home")
-                                    )
-                                    FloatingNavItem(
-                                        selected = currentTab == "Browser",
-                                        onClick = { currentTab = "Browser" },
-                                        filledIcon = Icons.Filled.Language,
-                                        outlinedIcon = Icons.Outlined.Language,
-                                        label = "Browser",
-                                        modifier = Modifier.testTag("nav_browser")
-                                    )
-                                    FloatingNavItem(
-                                        selected = currentTab == "Downloads",
-                                        onClick = { currentTab = "Downloads" },
-                                        filledIcon = Icons.Filled.CloudDownload,
-                                        outlinedIcon = Icons.Outlined.CloudDownload,
-                                        label = "Downloads",
-                                        modifier = Modifier.testTag("nav_downloads")
-                                    )
-                                    FloatingNavItem(
-                                        selected = currentTab == "Files",
-                                        onClick = { currentTab = "Files" },
-                                        filledIcon = Icons.Filled.Folder,
-                                        outlinedIcon = Icons.Outlined.Folder,
-                                        label = "Files",
-                                        modifier = Modifier.testTag("nav_files")
-                                    )
-                                    FloatingNavItem(
-                                        selected = currentTab == "Settings",
-                                        onClick = { currentTab = "Settings" },
-                                        filledIcon = Icons.Filled.Settings,
-                                        outlinedIcon = Icons.Outlined.Settings,
-                                        label = "Settings",
-                                        modifier = Modifier.testTag("nav_settings")
-                                    )
-                                }
-                            }
-                        }
-                    }
-                ) { innerPadding ->
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // Content Area
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         when (currentTab) {
                             "Home" -> DashboardTab(viewModel, onNavigateToTab = { currentTab = it })
@@ -151,6 +76,79 @@ class MainActivity : ComponentActivity() {
                             "Vault" -> VaultTab(viewModel)
                             "Files" -> FilesTab(viewModel)
                             "Settings" -> SettingsTab(viewModel)
+                        }
+                    }
+
+                    // Floating Bottom Bar
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("bottom_nav_bar"),
+                            shape = RoundedCornerShape(24.dp),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                            tonalElevation = 3.dp,
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                            ),
+                            shadowElevation = 8.dp
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                FloatingNavItem(
+                                    selected = currentTab == "Home",
+                                    onClick = { currentTab = "Home" },
+                                    filledIcon = Icons.Filled.Home,
+                                    outlinedIcon = Icons.Outlined.Home,
+                                    label = "Home",
+                                    modifier = Modifier.testTag("nav_home")
+                                )
+                                FloatingNavItem(
+                                    selected = currentTab == "Browser",
+                                    onClick = { currentTab = "Browser" },
+                                    filledIcon = Icons.Filled.Language,
+                                    outlinedIcon = Icons.Outlined.Language,
+                                    label = "Browser",
+                                    modifier = Modifier.testTag("nav_browser")
+                                )
+                                FloatingNavItem(
+                                    selected = currentTab == "Downloads",
+                                    onClick = { currentTab = "Downloads" },
+                                    filledIcon = Icons.Filled.CloudDownload,
+                                    outlinedIcon = Icons.Outlined.CloudDownload,
+                                    label = "Downloads",
+                                    modifier = Modifier.testTag("nav_downloads")
+                                )
+                                FloatingNavItem(
+                                    selected = currentTab == "Files",
+                                    onClick = { currentTab = "Files" },
+                                    filledIcon = Icons.Filled.Folder,
+                                    outlinedIcon = Icons.Outlined.Folder,
+                                    label = "Files",
+                                    modifier = Modifier.testTag("nav_files")
+                                )
+                                FloatingNavItem(
+                                    selected = currentTab == "Settings",
+                                    onClick = { currentTab = "Settings" },
+                                    filledIcon = Icons.Filled.Settings,
+                                    outlinedIcon = Icons.Outlined.Settings,
+                                    label = "Settings",
+                                    modifier = Modifier.testTag("nav_settings")
+                                )
+                            }
                         }
                     }
                 }

@@ -121,7 +121,8 @@ fun FilesTab(viewModel: MainViewModel) {
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 100.dp)
                 ) {
                     items(filteredFiles, key = { it.id }) { item ->
                         val file = File(item.filepath)

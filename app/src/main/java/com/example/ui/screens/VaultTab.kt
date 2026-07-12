@@ -280,7 +280,8 @@ fun VaultTab(viewModel: MainViewModel) {
 
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                                contentPadding = PaddingValues(bottom = 100.dp)
                             ) {
                                 items(privateList) { privateItem ->
                                     Card(
