@@ -22,8 +22,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.ui.viewmodel.MainViewModel
 import java.io.File
 import android.content.Intent
@@ -36,7 +38,10 @@ import com.example.ui.components.TabHeader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsTab(viewModel: MainViewModel) {
+fun SettingsTab(
+    viewModel: MainViewModel,
+    onNavigateToAbout: () -> Unit
+) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
@@ -48,6 +53,7 @@ fun SettingsTab(viewModel: MainViewModel) {
     val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
     val browserTogglePosition by viewModel.browserTogglePosition.collectAsState()
+    val isForceDarkWeb by viewModel.isForceDarkWeb.collectAsState()
     val downloadFolderPath by viewModel.downloadFolderPath.collectAsState()
 
     // Folder Picker Launcher
@@ -380,6 +386,15 @@ fun SettingsTab(viewModel: MainViewModel) {
                 tag = "tracker_block_switch"
             )
 
+            SettingsToggleRow(
+                icon = Icons.Default.DarkMode,
+                title = "Force Dark Mode for Web",
+                subtitle = "Attempts to render all websites in dark theme automatically",
+                checked = isForceDarkWeb,
+                onCheckedChange = { viewModel.isForceDarkWeb.value = it },
+                tag = "force_dark_web_switch"
+            )
+
             Divider()
 
             // Section 4: Vault & Security reset
@@ -402,6 +417,34 @@ fun SettingsTab(viewModel: MainViewModel) {
                     Text("Reset Secure Private Vault", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color.Red)
                     Text("Clear recovery passwords, security hint and reset folder access", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
+            }
+
+            Divider()
+
+            // Section 5: About
+            SettingsSectionHeader(title = "About")
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToAbout() }
+                    .padding(vertical = 8.dp)
+                    .testTag("about_row"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text("About Vortex Engine", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text("App info, features, technology & credits", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier.size(20.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(100.dp))

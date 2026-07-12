@@ -48,6 +48,7 @@ fun BrowserTab(viewModel: MainViewModel) {
     val isIncognito by viewModel.isIncognito.collectAsState()
     val isTrackerBlocking by viewModel.isTrackerBlocking.collectAsState()
     val isHttpsOnly by viewModel.isHttpsOnly.collectAsState()
+    val isForceDarkWeb by viewModel.isForceDarkWeb.collectAsState()
     val detectedMedia by viewModel.detectedMediaList.collectAsState()
     val bookmarks by viewModel.bookmarks.collectAsState()
 
@@ -265,6 +266,13 @@ fun BrowserTab(viewModel: MainViewModel) {
                         settings.databaseEnabled = true
                         settings.useWideViewPort = true
                         settings.loadWithOverviewMode = true
+
+                        // Apply Force Dark Mode if enabled
+                        if (isForceDarkWeb && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            settings.forceDark = WebSettings.FORCE_DARK_ON
+                        } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            settings.forceDark = WebSettings.FORCE_DARK_OFF
+                        }
                         
                         addJavascriptInterface(object {
                             @JavascriptInterface

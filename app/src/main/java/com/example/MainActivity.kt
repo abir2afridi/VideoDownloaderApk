@@ -92,128 +92,131 @@ class MainActivity : ComponentActivity() {
                             "Downloads" -> DownloadsTab(viewModel)
                             "Vault" -> VaultTab(viewModel)
                             "Files" -> FilesTab(viewModel)
-                            "Settings" -> SettingsTab(viewModel)
+                            "Settings" -> SettingsTab(viewModel, onNavigateToAbout = { currentTab = "About" })
+                            "About" -> AboutTab(onBack = { currentTab = "Settings" })
                         }
                     }
 
                     // Floating Bottom Bar with Animation
-                    val navAlignment = if (isNavCollapsed && currentTab == "Browser") {
-                        when (browserTogglePosition) {
-                            "Bottom Left" -> Alignment.CenterStart
-                            "Bottom Right" -> Alignment.CenterEnd
-                            else -> Alignment.Center
+                    if (currentTab != "About") {
+                        val navAlignment = if (isNavCollapsed && currentTab == "Browser") {
+                            when (browserTogglePosition) {
+                                "Bottom Left" -> Alignment.CenterStart
+                                "Bottom Right" -> Alignment.CenterEnd
+                                else -> Alignment.Center
+                            }
+                        } else {
+                            Alignment.Center
                         }
-                    } else {
-                        Alignment.Center
-                    }
 
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .navigationBarsPadding()
-                            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                        contentAlignment = navAlignment
-                    ) {
-                        AnimatedContent(
-                            targetState = isNavCollapsed && currentTab == "Browser",
-                            transitionSpec = {
-                                (fadeIn(animationSpec = tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)))
-                                    .togetherWith(fadeOut(animationSpec = tween(90)) + scaleOut(targetScale = 0.92f, animationSpec = tween(90)))
-                            },
-                            label = "nav_collapse_animation"
-                        ) { collapsed ->
-                            if (collapsed) {
-                                // Collapsed Single Icon
-                                Surface(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null,
-                                            onClick = { isNavCollapsed = false }
-                                        )
-                                        .testTag("nav_expand_button"),
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.primary,
-                                    tonalElevation = 6.dp,
-                                    shadowElevation = 8.dp,
-                                    border = BorderStroke(2.dp, Color.White.copy(alpha = 0.2f))
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(
-                                            imageVector = Icons.Default.Language,
-                                            contentDescription = "Expand Navigation",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(28.dp)
-                                        )
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .navigationBarsPadding()
+                                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                            contentAlignment = navAlignment
+                        ) {
+                            AnimatedContent(
+                                targetState = isNavCollapsed && currentTab == "Browser",
+                                transitionSpec = {
+                                    (fadeIn(animationSpec = tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)))
+                                        .togetherWith(fadeOut(animationSpec = tween(90)) + scaleOut(targetScale = 0.92f, animationSpec = tween(90)))
+                                },
+                                label = "nav_collapse_animation"
+                            ) { collapsed ->
+                                if (collapsed) {
+                                    // Collapsed Single Icon
+                                    Surface(
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null,
+                                                onClick = { isNavCollapsed = false }
+                                            )
+                                            .testTag("nav_expand_button"),
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        tonalElevation = 6.dp,
+                                        shadowElevation = 8.dp,
+                                        border = BorderStroke(2.dp, Color.White.copy(alpha = 0.2f))
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = Icons.Default.Language,
+                                                contentDescription = "Expand Navigation",
+                                                tint = Color.White,
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                        }
                                     }
-                                }
-                            } else {
-                                // Full Bottom Bar
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .testTag("bottom_nav_bar"),
-                                    shape = CircleShape,
-                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                                    tonalElevation = 6.dp,
-                                    border = BorderStroke(
-                                        width = 0.5.dp,
-                                        color = Color.White.copy(alpha = 0.3f)
-                                    ),
-                                    shadowElevation = 12.dp
-                                ) {
-                                    Row(
+                                } else {
+                                    // Full Bottom Bar
+                                    Surface(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(vertical = 8.dp, horizontal = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceEvenly,
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .testTag("bottom_nav_bar"),
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                        tonalElevation = 6.dp,
+                                        border = BorderStroke(
+                                            width = 0.5.dp,
+                                            color = Color.White.copy(alpha = 0.3f)
+                                        ),
+                                        shadowElevation = 12.dp
                                     ) {
-                                        FloatingNavItem(
-                                            selected = currentTab == "Home",
-                                            onClick = { currentTab = "Home" },
-                                            filledIcon = Icons.Filled.Home,
-                                            outlinedIcon = Icons.Outlined.Home,
-                                            label = "Home",
-                                            modifier = Modifier.testTag("nav_home")
-                                        )
-                                        FloatingNavItem(
-                                            selected = currentTab == "Browser",
-                                            onClick = { 
-                                                if (currentTab == "Browser") isNavCollapsed = true 
-                                                else currentTab = "Browser" 
-                                            },
-                                            filledIcon = Icons.Filled.Language,
-                                            outlinedIcon = Icons.Outlined.Language,
-                                            label = "Browser",
-                                            modifier = Modifier.testTag("nav_browser")
-                                        )
-                                        FloatingNavItem(
-                                            selected = currentTab == "Downloads",
-                                            onClick = { currentTab = "Downloads" },
-                                            filledIcon = Icons.Filled.CloudDownload,
-                                            outlinedIcon = Icons.Outlined.CloudDownload,
-                                            label = "Downloads",
-                                            modifier = Modifier.testTag("nav_downloads")
-                                        )
-                                        FloatingNavItem(
-                                            selected = currentTab == "Files",
-                                            onClick = { currentTab = "Files" },
-                                            filledIcon = Icons.Filled.Folder,
-                                            outlinedIcon = Icons.Outlined.Folder,
-                                            label = "Files",
-                                            modifier = Modifier.testTag("nav_files")
-                                        )
-                                        FloatingNavItem(
-                                            selected = currentTab == "Settings",
-                                            onClick = { currentTab = "Settings" },
-                                            filledIcon = Icons.Filled.Settings,
-                                            outlinedIcon = Icons.Outlined.Settings,
-                                            label = "Settings",
-                                            modifier = Modifier.testTag("nav_settings")
-                                        )
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 8.dp, horizontal = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceEvenly,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            FloatingNavItem(
+                                                selected = currentTab == "Home",
+                                                onClick = { currentTab = "Home" },
+                                                filledIcon = Icons.Filled.Home,
+                                                outlinedIcon = Icons.Outlined.Home,
+                                                label = "Home",
+                                                modifier = Modifier.testTag("nav_home")
+                                            )
+                                            FloatingNavItem(
+                                                selected = currentTab == "Browser",
+                                                onClick = { 
+                                                    if (currentTab == "Browser") isNavCollapsed = true 
+                                                    else currentTab = "Browser" 
+                                                },
+                                                filledIcon = Icons.Filled.Language,
+                                                outlinedIcon = Icons.Outlined.Language,
+                                                label = "Browser",
+                                                modifier = Modifier.testTag("nav_browser")
+                                            )
+                                            FloatingNavItem(
+                                                selected = currentTab == "Downloads",
+                                                onClick = { currentTab = "Downloads" },
+                                                filledIcon = Icons.Filled.CloudDownload,
+                                                outlinedIcon = Icons.Outlined.CloudDownload,
+                                                label = "Downloads",
+                                                modifier = Modifier.testTag("nav_downloads")
+                                            )
+                                            FloatingNavItem(
+                                                selected = currentTab == "Files",
+                                                onClick = { currentTab = "Files" },
+                                                filledIcon = Icons.Filled.Folder,
+                                                outlinedIcon = Icons.Outlined.Folder,
+                                                label = "Files",
+                                                modifier = Modifier.testTag("nav_files")
+                                            )
+                                            FloatingNavItem(
+                                                selected = currentTab == "Settings" || currentTab == "About",
+                                                onClick = { currentTab = "Settings" },
+                                                filledIcon = Icons.Filled.Settings,
+                                                outlinedIcon = Icons.Outlined.Settings,
+                                                label = "Settings",
+                                                modifier = Modifier.testTag("nav_settings")
+                                            )
+                                        }
                                     }
                                 }
                             }

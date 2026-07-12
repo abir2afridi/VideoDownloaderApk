@@ -63,6 +63,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val selectedAccentColor = MutableStateFlow(settingsPrefs.getString("accent_color", "Bento") ?: "Bento")
     val selectedThemeMode = MutableStateFlow(settingsPrefs.getString("theme_mode", "System") ?: "System")
     val browserTogglePosition = MutableStateFlow(settingsPrefs.getString("browser_toggle_pos", "Bottom Center") ?: "Bottom Center")
+    val isForceDarkWeb = MutableStateFlow(settingsPrefs.getBoolean("force_dark_web", false))
     val downloadFolderPath = MutableStateFlow(
         settingsPrefs.getString("download_path", null) ?: (Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath + "/SmartDownloader")
     )
@@ -102,6 +103,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             browserTogglePosition.collect { settingsPrefs.edit().putString("browser_toggle_pos", it).apply() }
+        }
+        viewModelScope.launch {
+            isForceDarkWeb.collect { settingsPrefs.edit().putBoolean("force_dark_web", it).apply() }
         }
         viewModelScope.launch {
             downloadFolderPath.collect { settingsPrefs.edit().putString("download_path", it).apply() }

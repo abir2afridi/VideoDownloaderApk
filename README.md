@@ -64,5 +64,4 @@ app/src/main/java/com/example/
 
 ## License
 
-This project is provided for educational purposes.
 
