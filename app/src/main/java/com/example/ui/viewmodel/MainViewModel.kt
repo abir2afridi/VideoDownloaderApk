@@ -61,6 +61,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val maxActiveDownloads = MutableStateFlow(3)
     val selectedAccentColor = MutableStateFlow("Bento") // Theme color option
     val selectedThemeMode = MutableStateFlow("System") // "System", "Light", "Dark"
+    val browserTogglePosition = MutableStateFlow("Bottom Center") // "Bottom Center", "Bottom Left", "Bottom Right"
 
     // Biometric/PIN vault lock
     val isVaultLocked = MutableStateFlow(true)

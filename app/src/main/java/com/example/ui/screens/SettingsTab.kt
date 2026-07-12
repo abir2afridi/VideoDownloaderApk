@@ -37,6 +37,7 @@ fun SettingsTab(viewModel: MainViewModel) {
     val maxActiveDownloads by viewModel.maxActiveDownloads.collectAsState()
     val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
+    val browserTogglePosition by viewModel.browserTogglePosition.collectAsState()
 
     Scaffold(
         topBar = {
@@ -141,6 +142,43 @@ fun SettingsTab(viewModel: MainViewModel) {
                                 onClick = {
                                     viewModel.selectedAccentColor.value = color
                                     expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Browser Toggle Position
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.OpenInFull, contentDescription = null, tint = Color.Gray)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column {
+                        Text("Browser Toggle Position", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                        Text("Where to place the collapsed navigation icon", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    }
+                }
+                
+                var posExpanded by remember { mutableStateOf(false) }
+                Box {
+                    Button(onClick = { posExpanded = true }, modifier = Modifier.testTag("toggle_pos_selector")) {
+                        Text(browserTogglePosition)
+                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+                    }
+                    DropdownMenu(expanded = posExpanded, onDismissRequest = { posExpanded = false }) {
+                        listOf("Bottom Left", "Bottom Center", "Bottom Right").forEach { pos ->
+                            DropdownMenuItem(
+                                text = { Text(pos) },
+                                onClick = {
+                                    viewModel.browserTogglePosition.value = pos
+                                    posExpanded = false
                                 }
                             )
                         }
