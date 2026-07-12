@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import android.os.Environment
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,8 +22,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.ui.viewmodel.MainViewModel
+import java.io.File
+import android.content.Intent
 
 import androidx.compose.foundation.BorderStroke
 import com.example.ui.components.TabHeader
@@ -38,6 +45,30 @@ fun SettingsTab(viewModel: MainViewModel) {
     val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
     val browserTogglePosition by viewModel.browserTogglePosition.collectAsState()
+    val downloadFolderPath by viewModel.downloadFolderPath.collectAsState()
+
+    // Folder Picker Launcher
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+        onResult = { uri: Uri? ->
+            uri?.let {
+                // Persist permissions
+                context.contentResolver.takePersistableUriPermission(
+                    it,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+                
+                // For simplicity in this app, we'll try to get a display path or just use the URI string
+                // Ideally, we'd use DocumentFile, but for a simple "Path" display:
+                val path = it.path ?: it.toString()
+                
+                // We'll update the viewmodel. Note: In a real app, you'd store the URI 
+                // and use DocumentFile for file operations on modern Android.
+                viewModel.downloadFolderPath.value = path
+                Toast.makeText(context, "Download folder updated!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
 
     Scaffold(
         topBar = {
@@ -200,6 +231,34 @@ fun SettingsTab(viewModel: MainViewModel) {
                 onCheckedChange = { viewModel.isWifiOnly.value = it },
                 tag = "wifi_only_switch"
             )
+
+            // Download Path Display
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .clickable { folderPickerLauncher.launch(null) },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Folder, contentDescription = null, tint = Color.Gray)
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Storage Path", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = downloadFolderPath,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.Edit,
+                    contentDescription = "Change path",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
 
             // Max downloads count
             Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {

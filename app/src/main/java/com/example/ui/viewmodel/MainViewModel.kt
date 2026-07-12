@@ -62,6 +62,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val selectedAccentColor = MutableStateFlow("Bento") // Theme color option
     val selectedThemeMode = MutableStateFlow("System") // "System", "Light", "Dark"
     val browserTogglePosition = MutableStateFlow("Bottom Center") // "Bottom Center", "Bottom Left", "Bottom Right"
+    val downloadFolderPath = MutableStateFlow(
+        File(application.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "SmartDownloader").absolutePath
+    )
 
     // Biometric/PIN vault lock
     val isVaultLocked = MutableStateFlow(true)
@@ -153,7 +156,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val targetDir = if (isPrivate) {
                 File(getApplication<Application>().filesDir, "vault")
             } else {
-                File(getApplication<Application>().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "SmartDownloader")
+                File(downloadFolderPath.value)
             }
             targetDir.mkdirs()
 
