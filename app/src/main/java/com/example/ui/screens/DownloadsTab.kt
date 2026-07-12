@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -71,9 +72,63 @@ fun DownloadsTab(viewModel: MainViewModel) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(top = innerPadding.calculateTopPadding())
                 .padding(horizontal = 16.dp)
         ) {
+            // Bulk Actions Bar
+            if (downloads.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val hasActive = activeQueue.any { it.status == "DOWNLOADING" || it.status == "QUEUED" }
+                    val hasPausedOrFailed = downloads.any { it.status == "PAUSED" || it.status == "FAILED" }
+
+                    if (hasActive) {
+                        BulkActionButton(
+                            onClick = { viewModel.pauseAllDownloads() },
+                            icon = Icons.Default.Pause,
+                            label = "Pause All",
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    
+                    if (hasPausedOrFailed) {
+                        BulkActionButton(
+                            onClick = { viewModel.resumeAllDownloads() },
+                            icon = Icons.Default.PlayArrow,
+                            label = "Resume All",
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    if (downloads.any { it.status == "FAILED" }) {
+                        BulkActionButton(
+                            onClick = { viewModel.retryAllFailed() },
+                            icon = Icons.Default.Refresh,
+                            label = "Retry All",
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    Surface(
+                        onClick = { viewModel.deleteAllDownloads() },
+                        color = Color.Red.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.DeleteSweep, contentDescription = "Delete All", tint = Color.Red, modifier = Modifier.size(20.dp))
+                        }
+                    }
+                }
+            }
+
             val isWifiOnly by viewModel.isWifiOnly.collectAsState()
             if (isWifiOnly) {
                 Card(
@@ -185,12 +240,13 @@ fun DownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = item.filename,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -203,18 +259,22 @@ fun DownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            val progress = if (item.totalBytes > 0) item.downloadedBytes.toFloat() / item.totalBytes.toFloat() else 0f
+            val progress by animateFloatAsState(
+                targetValue = if (item.totalBytes > 0) item.downloadedBytes.toFloat() / item.totalBytes.toFloat() else 0f,
+                label = "download_progress"
+            )
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp)),
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
                 color = when (item.status) {
-                    "FAILED" -> Color.Red
-                    "PAUSED" -> Color.Gray
+                    "FAILED" -> MaterialTheme.colorScheme.error
+                    "PAUSED" -> MaterialTheme.colorScheme.outline
                     else -> MaterialTheme.colorScheme.primary
-                }
+                },
+                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -232,7 +292,8 @@ fun DownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
                         Text(
                             text = "${MediaUtils.formatBytes(item.downloadedBytes)} / ${if (item.totalBytes > 0) MediaUtils.formatBytes(item.totalBytes) else "Unknown"}",
                             style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         if (item.status == "DOWNLOADING" && item.speed > 0) {
                             Spacer(modifier = Modifier.width(6.dp))
@@ -240,7 +301,7 @@ fun DownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
                                 text = "•  ${MediaUtils.formatSpeed(item.speed)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.ExtraBold
                             )
                         }
                     }
@@ -250,16 +311,17 @@ fun DownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
                             text = "Status: ${item.status}",
                             style = MaterialTheme.typography.bodySmall,
                             color = when (item.status) {
-                                "FAILED" -> Color.Red
+                                "FAILED" -> MaterialTheme.colorScheme.error
                                 "DOWNLOADING" -> MaterialTheme.colorScheme.primary
-                                else -> Color.Gray
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
                             }
                         )
                         if (item.status == "DOWNLOADING" && item.totalBytes > 0) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "•  Rem: ${MediaUtils.getEstimatedRemainingTime(item.totalBytes, item.downloadedBytes, item.speed)}",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -312,29 +374,72 @@ fun CompletedDownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
                 "Images" -> Icons.Default.Image
                 else -> Icons.Default.Description
             }
-            Icon(icon, contentDescription = null, tint = Color.Gray)
+            
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+            }
+            
             Spacer(modifier = Modifier.width(16.dp))
+            
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = item.title,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
-                Text(
-                    text = "${item.filename}  •  ${MediaUtils.formatBytes(item.totalBytes)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Gray,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = MediaUtils.formatBytes(item.totalBytes),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "  •  ${MediaUtils.getRelativeTime(item.timestamp)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 DownloadHealthIndicators(integrityStatus = item.integrityStatus, connectionHealth = item.connectionHealth)
             }
+            
             IconButton(onClick = { viewModel.deleteDownload(item.id) }) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
+                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red.copy(alpha = 0.6f))
             }
+        }
+    }
+}
+
+@Composable
+fun BulkActionButton(
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    color: Color
+) {
+    Surface(
+        onClick = onClick,
+        color = color.copy(alpha = 0.1f),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.2f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = color, fontWeight = FontWeight.Bold)
         }
     }
 }

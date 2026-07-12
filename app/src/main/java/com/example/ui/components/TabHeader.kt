@@ -31,7 +31,7 @@ fun TabHeader(
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.5.sp
                 ),
-                color = Color(0xFF0061A4)
+                color = MaterialTheme.colorScheme.primary
             )
             Text(
                 text = title,

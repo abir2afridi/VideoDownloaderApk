@@ -39,6 +39,7 @@ private val BentoLightColorScheme = lightColorScheme(
     surface = Color.White,
     onBackground = BentoText,
     onSurface = BentoText,
+    onSurfaceVariant = BentoText.copy(alpha = 0.7f),
     primaryContainer = BentoContainer,
     onPrimaryContainer = BentoOnContainer,
     surfaceVariant = BentoLightBlue,

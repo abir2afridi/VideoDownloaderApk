@@ -209,6 +209,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
+     * Bulk Actions
+     */
+    fun pauseAllDownloads() {
+        val active = publicDownloads.value.filter { it.status == "DOWNLOADING" || it.status == "QUEUED" }
+        active.forEach { pauseDownload(it.id) }
+    }
+
+    fun resumeAllDownloads() {
+        val paused = publicDownloads.value.filter { it.status == "PAUSED" || it.status == "FAILED" }
+        paused.forEach { resumeDownload(it.id) }
+    }
+
+    fun deleteAllDownloads() {
+        viewModelScope.launch(Dispatchers.IO) {
+            publicDownloads.value.forEach { entity ->
+                DownloadEngine.cancelDownload(getApplication(), entity.id)
+                dao.deleteDownload(entity)
+            }
+        }
+    }
+
+    fun retryAllFailed() {
+        val failed = publicDownloads.value.filter { it.status == "FAILED" }
+        failed.forEach { resumeDownload(it.id) }
+    }
+
+    /**
      * Favorites/Bookmarks management
      */
     fun toggleBookmark(url: String, title: String) {

@@ -126,4 +126,20 @@ object MediaUtils {
             }
         }
     }
+
+    fun getRelativeTime(timestamp: Long): String {
+        val now = System.currentTimeMillis()
+        val diff = now - timestamp
+        
+        return when {
+            diff < 60_000 -> "Just now"
+            diff < 3600_000 -> "${diff / 60_000}m ago"
+            diff < 86400_000 -> "${diff / 3600_000}h ago"
+            diff < 604800_000 -> "${diff / 86400_000}d ago"
+            else -> {
+                val sdf = java.text.SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+                sdf.format(java.util.Date(timestamp))
+            }
+        }
+    }
 }
