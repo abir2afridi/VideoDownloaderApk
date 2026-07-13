@@ -274,108 +274,6 @@ fun DashboardTab(
             }
         }
 
-        // 1.1. SEARCH BAR / URL INPUT
-        item {
-            var searchText by remember { mutableStateOf("") }
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    BasicTextField(
-                        value = searchText,
-                        onValueChange = { searchText = it },
-                        modifier = Modifier.weight(1f),
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(
-                            color = MaterialTheme.colorScheme.onSurface
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        singleLine = true,
-                        decorationBox = { innerTextField ->
-                            if (searchText.isEmpty()) {
-                                Text(
-                                    text = "Search or enter URL...",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                )
-                            }
-                            innerTextField()
-                        }
-                    )
-                    if (searchText.isNotEmpty()) {
-                        IconButton(
-                            onClick = { 
-                                if (searchText.startsWith("http")) {
-                                    viewModel.currentWebUrl.value = searchText
-                                    onNavigateToTab("Browser")
-                                } else if (searchText.isNotEmpty()) {
-                                    viewModel.currentWebUrl.value = "https://www.google.com/search?q=$searchText"
-                                    onNavigateToTab("Browser")
-                                }
-                            },
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = "Go",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // 1.2. QUICK ACTIONS
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickActionItem(
-                    icon = Icons.Default.Link,
-                    label = "Paste Link",
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    onClick = { showPasteLinkDialog = true },
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionItem(
-                    icon = Icons.Default.Bolt,
-                    label = "Speed Test",
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    onClick = { Toast.makeText(context, "Analyzing network speed...", Toast.LENGTH_SHORT).show() },
-                    modifier = Modifier.weight(1f)
-                )
-                QuickActionItem(
-                    icon = Icons.Default.History,
-                    label = "History",
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                    onClick = { onNavigateToTab("Files") },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
         // 1.5. LIVE CLOCK & CONNECTIVITY CARD
         item {
             Row(
@@ -475,7 +373,11 @@ fun DashboardTab(
         // 2. PRIMARY STATUS BLOCK (MINIMAL & INTUITIVE CARD)
         item {
             MinimalCard(
-                onClick = { onNavigateToTab("Downloads") },
+                onClick = { 
+                    if (activeTasksCount > 0) {
+                        onNavigateToTab("Downloads")
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("bento_active_tasks_card")
@@ -505,7 +407,7 @@ fun DashboardTab(
                                     val timeText = if (totalRemainingTime != null) " • $totalRemainingTime" else ""
                                     "Downloading • $speedText$timeText"
                                 } else {
-                                    "No ongoing streams"
+                                    "Ready to Download"
                                 },
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.SemiBold,
@@ -552,28 +454,65 @@ fun DashboardTab(
                             )
                         }
                     } else {
-                        // Quick Action Link Inside Card
-                        Row(
+                        // Link Input Field Inside Card
+                        var linkText by remember { mutableStateOf("") }
+                        Surface(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.03f))
-                                .clickable { showPasteLinkDialog = true }
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                         ) {
-                            Text(
-                                text = "Paste a new link to begin...",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                            )
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Link",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Row(
+                                modifier = Modifier
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Link,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                BasicTextField(
+                                    value = linkText,
+                                    onValueChange = { linkText = it },
+                                    modifier = Modifier.weight(1f),
+                                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                    singleLine = true,
+                                    decorationBox = { innerTextField ->
+                                        if (linkText.isEmpty()) {
+                                            Text(
+                                                text = "Paste link here...",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                )
+                                if (linkText.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { 
+                                            viewModel.addDownload(linkText.trim(), "Manual Download")
+                                            linkText = ""
+                                            Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Download,
+                                            contentDescription = "Download",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
