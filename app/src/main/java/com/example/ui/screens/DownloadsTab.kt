@@ -187,15 +187,18 @@ fun DownloadsTab(viewModel: MainViewModel) {
                     activeQueue.sumOf { it.downloadedBytes },
                     totalActiveSpeed
                 )
-                Surface(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Bolt,
@@ -203,21 +206,23 @@ fun DownloadsTab(viewModel: MainViewModel) {
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                text = "Queue Summary",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                            )
-                            Text(
-                                text = "${MediaUtils.formatSpeed(totalActiveSpeed)} total bandwidth • $totalRemaining remaining",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                    }
+                    Spacer(modifier = Modifier.width(14.dp))
+                    Column {
+                        Text(
+                            text = "QUEUE SUMMARY",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.2.sp
+                            ),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            text = "${MediaUtils.formatSpeed(totalActiveSpeed)} total bandwidth • $totalRemaining left",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
@@ -305,153 +310,14 @@ fun DownloadsTab(viewModel: MainViewModel) {
 
 @Composable
 fun DownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
-    Card(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("download_row_${item.id}"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val (icon, tint) = when (item.category) {
-                    "Video" -> Icons.Default.Movie to Color(0xFFE91E63)
-                    "Audio" -> Icons.Default.Audiotrack to Color(0xFF2196F3)
-                    "Images" -> Icons.Default.Image to Color(0xFF4CAF50)
-                    else -> Icons.Default.Description to Color(0xFF9C27B0)
-                }
-                
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(tint.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(icon, contentDescription = null, tint = tint)
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = item.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${item.status} • ${if (item.totalBytes > 0) MediaUtils.formatBytes(item.totalBytes) else "Unknown"}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val controlIcon = when (item.status) {
-                        "DOWNLOADING", "QUEUED" -> Icons.Default.Pause
-                        else -> Icons.Default.PlayArrow
-                    }
-                    IconButton(
-                        onClick = {
-                            if (item.status == "DOWNLOADING" || item.status == "QUEUED") {
-                                viewModel.pauseDownload(item.id)
-                            } else {
-                                viewModel.resumeDownload(item.id)
-                            }
-                        },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(controlIcon, contentDescription = "PlayPause", tint = MaterialTheme.colorScheme.primary)
-                    }
-                    
-                    IconButton(
-                        onClick = { viewModel.deleteDownload(item.id) },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
-                    }
-                }
-            }
-
-            if (item.status == "DOWNLOADING" || item.status == "PAUSED" || item.status == "FAILED") {
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                val progress by animateFloatAsState(
-                    targetValue = if (item.totalBytes > 0) item.downloadedBytes.toFloat() / item.totalBytes.toFloat() else 0f,
-                    label = "download_progress"
-                )
-                
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .clip(CircleShape),
-                    color = when (item.status) {
-                        "FAILED" -> MaterialTheme.colorScheme.error
-                        "PAUSED" -> MaterialTheme.colorScheme.outline
-                        else -> MaterialTheme.colorScheme.primary
-                    },
-                    trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "${MediaUtils.formatBytes(item.downloadedBytes)} of ${if (item.totalBytes > 0) MediaUtils.formatBytes(item.totalBytes) else "..."}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    
-                    if (item.status == "DOWNLOADING") {
-                        val speedText = MediaUtils.formatSpeed(item.speed)
-                        val timeText = MediaUtils.getEstimatedRemainingTime(item.totalBytes, item.downloadedBytes, item.speed)
-                        Text(
-                            text = "$speedText • $timeText",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-            
-            if (item.integrityStatus != "OK" && item.integrityStatus != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                DownloadHealthIndicators(integrityStatus = item.integrityStatus, connectionHealth = item.connectionHealth)
-            }
-        }
-    }
-}
-
-@Composable
-fun CompletedDownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("completed_download_row_${item.id}"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f)),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+            .padding(vertical = 8.dp)
+            .testTag("download_row_${item.id}")
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             val (icon, tint) = when (item.category) {
@@ -463,15 +329,150 @@ fun CompletedDownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
             
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(tint.copy(alpha = 0.08f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, contentDescription = null, tint = tint.copy(alpha = 0.8f), modifier = Modifier.size(22.dp))
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${item.status} • ${if (item.totalBytes > 0) MediaUtils.formatBytes(item.totalBytes) else "Unknown"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val controlIcon = when (item.status) {
+                    "DOWNLOADING", "QUEUED" -> Icons.Default.Pause
+                    else -> Icons.Default.PlayArrow
+                }
+                IconButton(
+                    onClick = {
+                        if (item.status == "DOWNLOADING" || item.status == "QUEUED") {
+                            viewModel.pauseDownload(item.id)
+                        } else {
+                            viewModel.resumeDownload(item.id)
+                        }
+                    },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(controlIcon, contentDescription = "PlayPause", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                }
+                
+                IconButton(
+                    onClick = { viewModel.deleteDownload(item.id) },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Cancel", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f), modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+
+        if (item.status == "DOWNLOADING" || item.status == "PAUSED" || item.status == "FAILED") {
+            Spacer(modifier = Modifier.height(10.dp))
+            
+            val progress by animateFloatAsState(
+                targetValue = if (item.totalBytes > 0) item.downloadedBytes.toFloat() / item.totalBytes.toFloat() else 0f,
+                label = "download_progress"
+            )
+            
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(CircleShape),
+                color = when (item.status) {
+                    "FAILED" -> MaterialTheme.colorScheme.error
+                    "PAUSED" -> MaterialTheme.colorScheme.outline
+                    else -> MaterialTheme.colorScheme.primary
+                },
+                trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${MediaUtils.formatBytes(item.downloadedBytes)} / ${if (item.totalBytes > 0) MediaUtils.formatBytes(item.totalBytes) else "..."}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+                
+                if (item.status == "DOWNLOADING") {
+                    val speedText = MediaUtils.formatSpeed(item.speed)
+                    val timeText = MediaUtils.getEstimatedRemainingTime(item.totalBytes, item.downloadedBytes, item.speed)
+                    Text(
+                        text = "$speedText • $timeText",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+        
+        if (item.integrityStatus != "OK" && item.integrityStatus != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            DownloadHealthIndicators(integrityStatus = item.integrityStatus, connectionHealth = item.connectionHealth)
+        }
+        
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 12.dp),
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+        )
+    }
+}
+
+@Composable
+fun CompletedDownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .testTag("completed_download_row_${item.id}")
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val (icon, tint) = when (item.category) {
+                "Video" -> Icons.Default.Movie to Color(0xFFE91E63)
+                "Audio" -> Icons.Default.Audiotrack to Color(0xFF2196F3)
+                "Images" -> Icons.Default.Image to Color(0xFF4CAF50)
+                else -> Icons.Default.Description to Color(0xFF9C27B0)
+            }
+            
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(tint.copy(alpha = 0.05f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = null, tint = tint.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
+                Icon(icon, contentDescription = null, tint = tint.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
             }
             
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
             
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -486,22 +487,28 @@ fun CompletedDownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
                     Text(
                         text = MediaUtils.formatBytes(item.totalBytes),
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
                     Text(
                         text = " • ${MediaUtils.getRelativeTime(item.timestamp)}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 }
             }
             
             IconButton(onClick = { viewModel.deleteDownload(item.id) }, modifier = Modifier.size(32.dp)) {
-                Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
+                Icon(Icons.Default.DeleteOutline, contentDescription = "Delete", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
             }
         }
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 8.dp),
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+        )
     }
 }
+
 
 
 @Composable

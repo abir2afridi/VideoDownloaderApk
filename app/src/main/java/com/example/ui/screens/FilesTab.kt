@@ -173,14 +173,14 @@ fun FilesTab(viewModel: MainViewModel) {
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(bottom = 100.dp, top = 8.dp)
                 ) {
                     items(filteredFiles, key = { it.id }) { item ->
                         val file = File(item.filepath)
                         val fileExists = file.exists()
 
-                         Card(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
@@ -194,15 +194,11 @@ fun FilesTab(viewModel: MainViewModel) {
                                         Toast.makeText(context, "File was moved or deleted outside the app.", Toast.LENGTH_SHORT).show()
                                     }
                                 }
-                                .testTag("file_item_${item.id}"),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                                .padding(vertical = 8.dp)
+                                .testTag("file_item_${item.id}")
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 val (icon, tint) = when (item.category) {
@@ -214,12 +210,12 @@ fun FilesTab(viewModel: MainViewModel) {
                                 
                                 Box(
                                     modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(tint.copy(alpha = 0.08f)),
+                                        .size(40.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(tint.copy(alpha = 0.05f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(icon, contentDescription = null, tint = tint.copy(alpha = 0.7f), modifier = Modifier.size(24.dp))
+                                    Icon(icon, contentDescription = null, tint = tint.copy(alpha = 0.6f), modifier = Modifier.size(20.dp))
                                 }
                                 
                                 Spacer(modifier = Modifier.width(16.dp))
@@ -228,14 +224,14 @@ fun FilesTab(viewModel: MainViewModel) {
                                     Text(
                                         text = item.title,
                                         style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
+                                        fontWeight = FontWeight.Medium,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
                                         text = "${MediaUtils.formatBytes(item.totalBytes)} • ${item.mimeType.split("/").last().uppercase()}",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                                     )
                                     
                                     if (!fileExists) {
@@ -252,7 +248,7 @@ fun FilesTab(viewModel: MainViewModel) {
                                 var showMenu by remember { mutableStateOf(false) }
                                 Box {
                                     IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
                                     }
                                     DropdownMenu(
                                         expanded = showMenu,
@@ -315,10 +311,16 @@ fun FilesTab(viewModel: MainViewModel) {
                                     }
                                 }
                             }
+                            HorizontalDivider(
+                                modifier = Modifier.padding(top = 12.dp),
+                                thickness = 0.5.dp,
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+                            )
                         }
                     }
                 }
             }
+
 
         }
 
