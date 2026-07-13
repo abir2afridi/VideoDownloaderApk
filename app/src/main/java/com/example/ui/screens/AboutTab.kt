@@ -75,7 +75,7 @@ fun AboutTab(onBack: () -> Unit) {
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "VORTEX ENGINE",
+                    text = "NEXLOAD",
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         letterSpacing = 4.sp

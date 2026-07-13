@@ -193,7 +193,7 @@ fun DashboardTab(
             ) {
                 Column {
                     Text(
-                        text = "VORTEX ENGINE",
+                        text = "NEXLOAD",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Black,
                             letterSpacing = 2.5.sp,

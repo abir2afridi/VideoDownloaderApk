@@ -88,7 +88,7 @@ fun SettingsTab(
                     .padding(horizontal = 16.dp)
             ) {
                 TabHeader(
-                    category = "Vortex Pro",
+                    category = "NexLoad Pro",
                     title = "Preferences"
                 )
             }
@@ -435,7 +435,7 @@ fun SettingsTab(
                 Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
-                    Text("About Vortex Engine", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text("About NexLoad", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
                     Text("App info, features, technology & credits", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                 }
                 Spacer(modifier = Modifier.weight(1f))

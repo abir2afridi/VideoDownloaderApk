@@ -1,4 +1,4 @@
-# Vortex Engine — Smart Video Downloader
+# NexLoad — Smart Video Downloader
 
 An Android application for downloading videos and media from the web with a built-in browser, multi-threaded download engine, and private vault.
 

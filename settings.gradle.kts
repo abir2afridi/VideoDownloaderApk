@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Smart Video Downloader"
+rootProject.name = "NexLoad"
 
 include(":app")

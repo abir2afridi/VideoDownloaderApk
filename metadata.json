@@ -1,5 +1,5 @@
 {
-  "name": "Smart Video Downloader",
+  "name": "NexLoad",
   "description": "A video downloader with a built-in browser, multi-threaded downloading, and a private locked vault.",
   "requestFramePermissions": [],
   "majorCapabilities": []
