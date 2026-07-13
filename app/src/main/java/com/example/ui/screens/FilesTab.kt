@@ -3,7 +3,11 @@ package com.example.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,11 +38,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 
-import androidx.compose.foundation.BorderStroke
 import com.example.ui.components.TabHeader
 import com.example.ui.components.DownloadHealthIndicators
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun FilesTab(viewModel: MainViewModel) {
     val context = LocalContext.current
@@ -51,6 +54,10 @@ fun FilesTab(viewModel: MainViewModel) {
     var activePlayingFilePath by remember { mutableStateOf<String?>(null) }
     var selectedMetadataItem by remember { mutableStateOf<DownloadEntity?>(null) }
 
+    // Selection Mode State
+    var isSelectionMode by remember { mutableStateOf(false) }
+    val selectedIds = remember { mutableStateListOf<Int>() }
+
     val categories = listOf("All", "Video", "Audio", "Images", "Other")
     val filteredFiles = if (selectedCategoryFilter == "All") {
         completedFiles
@@ -60,58 +67,106 @@ fun FilesTab(viewModel: MainViewModel) {
 
     Scaffold(
         topBar = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            if (isSelectionMode) {
+                Surface(
+                    tonalElevation = 3.dp,
+                    color = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
                 ) {
-                    Column {
-                        Text(
-                            text = "LIBRARY",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 2.sp,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                            )
+                    Column(modifier = Modifier.statusBarsPadding()) {
+                        TopAppBar(
+                            title = { Text("${selectedIds.size} Selected", style = MaterialTheme.typography.titleMedium) },
+                            navigationIcon = {
+                                IconButton(onClick = { 
+                                    isSelectionMode = false
+                                    selectedIds.clear()
+                                }) {
+                                    Icon(Icons.Default.Close, contentDescription = "Cancel")
+                                }
+                            },
+                            actions = {
+                                IconButton(onClick = {
+                                    val filesToShare = completedFiles.filter { it.id in selectedIds }.map { File(it.filepath) }.filter { it.exists() }
+                                    if (filesToShare.isNotEmpty()) {
+                                        shareMultipleFiles(context, filesToShare)
+                                    }
+                                    isSelectionMode = false
+                                    selectedIds.clear()
+                                }) {
+                                    Icon(Icons.Default.Share, contentDescription = "Share Selected")
+                                }
+                                IconButton(onClick = {
+                                    selectedIds.forEach { id -> viewModel.deleteDownload(id) }
+                                    isSelectionMode = false
+                                    selectedIds.clear()
+                                }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Delete Selected", tint = MaterialTheme.colorScheme.error)
+                                }
+                            }
                         )
-                        Text(
-                            text = "File Library",
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = (-1).sp
-                            )
-                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-
-                    // Theme Toggle
-                    val themeIcon = when (viewModel.selectedThemeMode.collectAsState().value) {
-                        "Light" -> Icons.Default.LightMode
-                        "Dark" -> Icons.Default.DarkMode
-                        else -> Icons.Default.BrightnessAuto
-                    }
-                    Surface(
-                        onClick = {
-                            val modes = listOf("System", "Light", "Dark")
-                            val current = viewModel.selectedThemeMode.value
-                            val next = (modes.indexOf(current) + 1) % modes.size
-                            viewModel.selectedThemeMode.value = modes[next]
-                        },
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = CircleShape
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.padding(10.dp)) {
-                            Icon(
-                                imageVector = themeIcon,
-                                contentDescription = "Toggle theme",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
+                        Column {
+                            Text(
+                                text = "LIBRARY",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 2.sp,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                                )
                             )
+                            Text(
+                                text = "File Library",
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = (-1).sp
+                                )
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (completedFiles.isNotEmpty()) {
+                                IconButton(onClick = { isSelectionMode = true }) {
+                                    Icon(Icons.Default.Checklist, contentDescription = "Select items", tint = MaterialTheme.colorScheme.primary)
+                                }
+                            }
+                            
+                            val themeIcon = when (viewModel.selectedThemeMode.collectAsState().value) {
+                                "Light" -> Icons.Default.LightMode
+                                "Dark" -> Icons.Default.DarkMode
+                                else -> Icons.Default.BrightnessAuto
+                            }
+                            Surface(
+                                onClick = {
+                                    val modes = listOf("System", "Light", "Dark")
+                                    val current = viewModel.selectedThemeMode.value
+                                    val next = (modes.indexOf(current) + 1) % modes.size
+                                    viewModel.selectedThemeMode.value = modes[next]
+                                },
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                shape = CircleShape
+                            ) {
+                                Box(modifier = Modifier.padding(10.dp)) {
+                                    Icon(
+                                        imageVector = themeIcon,
+                                        contentDescription = "Toggle theme",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -124,7 +179,6 @@ fun FilesTab(viewModel: MainViewModel) {
                 .padding(top = innerPadding.calculateTopPadding())
                 .padding(horizontal = 24.dp)
         ) {
-
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -179,28 +233,58 @@ fun FilesTab(viewModel: MainViewModel) {
                     items(filteredFiles, key = { it.id }) { item ->
                         val file = File(item.filepath)
                         val fileExists = file.exists()
+                        val isSelected = selectedIds.contains(item.id)
 
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    if (fileExists) {
-                                        if (item.category == "Video") {
-                                            activePlayingFilePath = item.filepath
+                                .background(
+                                    if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                    else Color.Transparent,
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .combinedClickable(
+                                    onClick = {
+                                        if (isSelectionMode) {
+                                            if (isSelected) selectedIds.remove(item.id)
+                                            else selectedIds.add(item.id)
                                         } else {
-                                            selectedMetadataItem = item
+                                            if (fileExists) {
+                                                if (item.category == "Video") {
+                                                    activePlayingFilePath = item.filepath
+                                                } else {
+                                                    selectedMetadataItem = item
+                                                }
+                                            } else {
+                                                Toast.makeText(context, "File was moved or deleted outside the app.", Toast.LENGTH_SHORT).show()
+                                            }
                                         }
-                                    } else {
-                                        Toast.makeText(context, "File was moved or deleted outside the app.", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onLongClick = {
+                                        if (!isSelectionMode) {
+                                            isSelectionMode = true
+                                            selectedIds.add(item.id)
+                                        }
                                     }
-                                }
-                                .padding(vertical = 8.dp)
+                                )
+                                .padding(vertical = 8.dp, horizontal = if (isSelectionMode) 8.dp else 0.dp)
                                 .testTag("file_item_${item.id}")
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                if (isSelectionMode) {
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = {
+                                            if (it) selectedIds.add(item.id)
+                                            else selectedIds.remove(item.id)
+                                        },
+                                        modifier = Modifier.padding(end = 8.dp)
+                                    )
+                                }
+
                                 val (icon, tint) = when (item.category) {
                                     "Video" -> Icons.Default.Movie to Color(0xFFE91E63)
                                     "Audio" -> Icons.Default.Audiotrack to Color(0xFF2196F3)
@@ -245,69 +329,71 @@ fun FilesTab(viewModel: MainViewModel) {
                                     }
                                 }
 
-                                var showMenu by remember { mutableStateOf(false) }
-                                Box {
-                                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
-                                        Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                    }
-                                    DropdownMenu(
-                                        expanded = showMenu,
-                                        onDismissRequest = { showMenu = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Details") },
-                                            leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                                            onClick = {
-                                                selectedMetadataItem = item
-                                                showMenu = false
-                                            }
-                                        )
-                                        if (fileExists) {
+                                if (!isSelectionMode) {
+                                    var showMenu by remember { mutableStateOf(false) }
+                                    Box {
+                                        IconButton(onClick = { showMenu = true }, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Default.MoreVert, contentDescription = "Actions", tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                                        }
+                                        DropdownMenu(
+                                            expanded = showMenu,
+                                            onDismissRequest = { showMenu = false }
+                                        ) {
                                             DropdownMenuItem(
-                                                text = { Text("Share") },
-                                                leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                                text = { Text("Details") },
+                                                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp)) },
                                                 onClick = {
-                                                    shareFile(context, file, item.mimeType)
+                                                    selectedMetadataItem = item
                                                     showMenu = false
                                                 }
                                             )
-                                            DropdownMenuItem(
-                                                text = { Text("Private Vault") },
-                                                leadingIcon = { Icon(Icons.Default.EnhancedEncryption, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                                                onClick = {
-                                                    scope.launch {
-                                                        val dbInst = com.example.data.database.AppDatabase.getDatabase(context)
-                                                        val daoInst = dbInst.downloadDao()
-                                                        
-                                                        val vaultDir = File(context.filesDir, "vault")
-                                                        vaultDir.mkdirs()
-                                                        val targetFile = File(vaultDir, item.filename)
-                                                        
-                                                        val moved = withContext(Dispatchers.IO) {
-                                                            file.renameTo(targetFile)
-                                                        }
-                                                        
-                                                        if (moved) {
-                                                            daoInst.updateDownload(item.copy(isPrivate = true, filepath = targetFile.absolutePath))
-                                                            Toast.makeText(context, "Moved to Secure Vault!", Toast.LENGTH_SHORT).show()
-                                                        } else {
-                                                            Toast.makeText(context, "Move failed", Toast.LENGTH_SHORT).show()
-                                                        }
+                                            if (fileExists) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Share") },
+                                                    leadingIcon = { Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                                    onClick = {
+                                                        shareFile(context, file, item.mimeType)
+                                                        showMenu = false
                                                     }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Private Vault") },
+                                                    leadingIcon = { Icon(Icons.Default.EnhancedEncryption, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                                    onClick = {
+                                                        scope.launch {
+                                                            val dbInst = com.example.data.database.AppDatabase.getDatabase(context)
+                                                            val daoInst = dbInst.downloadDao()
+                                                            
+                                                            val vaultDir = File(context.filesDir, "vault")
+                                                            vaultDir.mkdirs()
+                                                            val targetFile = File(vaultDir, item.filename)
+                                                            
+                                                            val moved = withContext(Dispatchers.IO) {
+                                                                file.renameTo(targetFile)
+                                                            }
+                                                            
+                                                            if (moved) {
+                                                                daoInst.updateDownload(item.copy(isPrivate = true, filepath = targetFile.absolutePath))
+                                                                Toast.makeText(context, "Moved to Secure Vault!", Toast.LENGTH_SHORT).show()
+                                                            } else {
+                                                                Toast.makeText(context, "Move failed", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                        showMenu = false
+                                                    }
+                                                )
+                                            }
+                                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                            DropdownMenuItem(
+                                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                                leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) },
+                                                onClick = {
+                                                    viewModel.deleteDownload(item.id)
+                                                    Toast.makeText(context, "File deleted", Toast.LENGTH_SHORT).show()
                                                     showMenu = false
                                                 }
                                             )
                                         }
-                                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                                        DropdownMenuItem(
-                                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) },
-                                            onClick = {
-                                                viewModel.deleteDownload(item.id)
-                                                Toast.makeText(context, "File deleted", Toast.LENGTH_SHORT).show()
-                                                showMenu = false
-                                            }
-                                        )
                                     }
                                 }
                             }
@@ -320,8 +406,6 @@ fun FilesTab(viewModel: MainViewModel) {
                     }
                 }
             }
-
-
         }
 
         activePlayingFilePath?.let { path ->
@@ -383,6 +467,27 @@ private fun shareFile(context: android.content.Context, file: File, mimeType: St
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(Intent.createChooser(intent, "Share Media File"))
+    } catch (e: Exception) {
+        Toast.makeText(context, "Sharing failed: ${e.message}", Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun shareMultipleFiles(context: android.content.Context, files: List<File>) {
+    try {
+        val uris = ArrayList<Uri>()
+        files.forEach { file ->
+            uris.add(FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file
+            ))
+        }
+        val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+            type = "*/*"
+            putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share Media Files"))
     } catch (e: Exception) {
         Toast.makeText(context, "Sharing failed: ${e.message}", Toast.LENGTH_SHORT).show()
     }
