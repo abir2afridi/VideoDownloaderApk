@@ -48,6 +48,7 @@ import android.net.NetworkCapabilities
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
+import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -469,12 +470,35 @@ fun DashboardTab(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Link,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                // Favicon Detection
+                                val faviconUrl = remember(linkText) {
+                                    if (linkText.startsWith("http")) {
+                                        try {
+                                            val domain = android.net.Uri.parse(linkText).host
+                                            if (!domain.isNullOrBlank()) {
+                                                "https://www.google.com/s2/favicons?sz=64&domain=$domain"
+                                            } else null
+                                        } catch (e: Exception) { null }
+                                    } else null
+                                }
+
+                                if (faviconUrl != null) {
+                                    AsyncImage(
+                                        model = faviconUrl,
+                                        contentDescription = "Favicon",
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(RoundedCornerShape(4.dp)),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Fit
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Link,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                                 BasicTextField(
                                     value = linkText,
                                     onValueChange = { linkText = it },
