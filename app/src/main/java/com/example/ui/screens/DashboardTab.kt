@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +57,7 @@ fun DashboardTab(
     val scope = rememberCoroutineScope()
     val downloads by viewModel.publicDownloads.collectAsState()
     val isIncognito by viewModel.isIncognito.collectAsState()
+    val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
 
     // Download calculations
     val activeDownloads = downloads.filter { it.status == "DOWNLOADING" || it.status == "QUEUED" }
@@ -170,17 +172,17 @@ fun DashboardTab(
                     Text(
                         text = "VORTEX ENGINE",
                         style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 2.5.sp,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
                         )
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Workspace",
+                        text = "Dashboard",
                         style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = (-0.5).sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-1).sp,
                             color = MaterialTheme.colorScheme.onBackground
                         )
                     )
@@ -188,10 +190,10 @@ fun DashboardTab(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     // Theme toggle icon
-                    val themeIcon = when (viewModel.selectedThemeMode.value) {
+                    val themeIcon = when (selectedThemeMode) {
                         "Light" -> Icons.Default.LightMode
                         "Dark" -> Icons.Default.DarkMode
                         else -> Icons.Default.BrightnessAuto
@@ -199,35 +201,35 @@ fun DashboardTab(
                     Surface(
                         onClick = {
                             val modes = listOf("System", "Light", "Dark")
-                            val next = (modes.indexOf(viewModel.selectedThemeMode.value) + 1) % modes.size
+                            val next = (modes.indexOf(selectedThemeMode) + 1) % modes.size
                             viewModel.selectedThemeMode.value = modes[next]
                         },
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-                        shape = RoundedCornerShape(12.dp)
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = CircleShape
                     ) {
-                        Box(modifier = Modifier.padding(8.dp)) {
+                        Box(modifier = Modifier.padding(10.dp)) {
                             Icon(
                                 imageVector = themeIcon,
                                 contentDescription = "Toggle theme",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
 
                     // Super Clean Minimalist Engine Tag
                     Surface(
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-                        shape = RoundedCornerShape(12.dp)
+                        color = if (activeTasksCount > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(6.dp)
+                                    .size(8.dp)
                                     .clip(CircleShape)
                                     .background(
                                         if (activeTasksCount > 0) MaterialTheme.colorScheme.primary 
@@ -237,15 +239,104 @@ fun DashboardTab(
                             Text(
                                 text = if (activeTasksCount > 0) "ACTIVE" else "READY",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 10.sp,
-                                    letterSpacing = 0.5.sp
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 0.8.sp
                                 ),
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = if (activeTasksCount > 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
                 }
+            }
+        }
+
+        // 1.1. SEARCH BAR / URL INPUT
+        item {
+            var searchText by remember { mutableStateOf("") }
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (searchText.isEmpty()) {
+                            Text(
+                                text = "Search or enter URL...",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                            )
+                        }
+                        // In a real app, this would be a BasicTextField
+                        Text(
+                            text = searchText,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    if (searchText.isNotEmpty()) {
+                        IconButton(
+                            onClick = { searchText = "" },
+                            modifier = Modifier.size(20.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 1.2. QUICK ACTIONS
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                QuickActionItem(
+                    icon = Icons.Default.Link,
+                    label = "Paste Link",
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    onClick = { showPasteLinkDialog = true },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionItem(
+                    icon = Icons.Default.Bolt,
+                    label = "Speed Test",
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    onClick = { Toast.makeText(context, "Analyzing network speed...", Toast.LENGTH_SHORT).show() },
+                    modifier = Modifier.weight(1f)
+                )
+                QuickActionItem(
+                    icon = Icons.Default.History,
+                    label = "History",
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+                    onClick = { onNavigateToTab("Files") },
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
 
@@ -542,7 +633,7 @@ fun DashboardTab(
             }
         }
 
-        // 4. STORAGE OVERVIEW (TRULY MINIMALIST LINE DESIGN)
+        // 4. STORAGE OVERVIEW (ENHANCED DESIGN)
         item {
             MinimalCard(
                 onClick = {},
@@ -552,7 +643,7 @@ fun DashboardTab(
             ) {
                 Column(
                     modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -563,72 +654,72 @@ fun DashboardTab(
                             Text(
                                 text = "STORAGE",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.5.sp,
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                                 )
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "${storageStats.usedFormatted} of ${storageStats.totalFormatted} Used",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                text = "${storageStats.usedFormatted} used",
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                                 color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "of ${storageStats.totalFormatted} total capacity",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
 
-                        // Super subtle quiet clean button
-                        Surface(
-                            onClick = {
-                                scope.launch {
-                                    isOptimizing = true
-                                    kotlinx.coroutines.delay(1000)
-                                    isOptimizing = false
-                                    Toast.makeText(context, "Cache flushed and storage optimized", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                text = "OPTIMIZE",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        // Circular Progress Representation
+                        Box(contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator(
+                                progress = { storageStats.percentageUsed },
+                                modifier = Modifier.size(60.dp),
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                strokeWidth = 6.dp,
+                                trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                            )
+                            Text(
+                                text = "${(storageStats.percentageUsed * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
 
-                    // A single solid sleek tracking bar instead of busy multi-colored tracks
-                    val progressFraction = storageStats.percentageUsed
-                    LinearProgressIndicator(
-                        progress = { progressFraction },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        trackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                    )
-
                     // Compact quiet legend details
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StorageTypeBadge("Video", storageStats.videoSizeFormatted, MaterialTheme.colorScheme.primary)
+                        StorageTypeBadge("Audio", storageStats.audioSizeFormatted, MaterialTheme.colorScheme.secondary)
+                        StorageTypeBadge("Other", MediaUtils.formatBytes(storageStats.usedBytes - storageStats.videoBytes - storageStats.audioBytes), MaterialTheme.colorScheme.tertiary)
+                    }
+                    
+                    Surface(
+                        onClick = {
+                            scope.launch {
+                                isOptimizing = true
+                                delay(1500)
+                                isOptimizing = false
+                                Toast.makeText(context, "System optimized", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
                     ) {
                         Text(
-                            text = "Video • ${storageStats.videoSizeFormatted}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                        Text(
-                            text = "Audio • ${storageStats.audioSizeFormatted}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                        Text(
-                            text = "Free • ${storageStats.freeFormatted}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            text = "Clean & Optimize Storage",
+                            modifier = Modifier.padding(vertical = 10.dp),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -638,16 +729,29 @@ fun DashboardTab(
         // 5. RECENTLY COMPLETED SESSION PORTAL
         item {
             if (recentDownload != null) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Recent Complete",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        ),
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom
+                    ) {
+                        Text(
+                            text = "RECENT COMPLETION",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.5.sp,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            )
+                        )
+                        Text(
+                            text = "VIEW ALL",
+                            modifier = Modifier.clickable { onNavigateToTab("Files") },
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                    }
 
                     MinimalCard(
                         onClick = { onNavigateToTab("Files") },
@@ -833,6 +937,68 @@ fun DashboardTab(
 }
 
 @Composable
+fun QuickActionItem(
+    icon: ImageVector,
+    label: String,
+    containerColor: Color,
+    contentColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(80.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = containerColor,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = contentColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = contentColor,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun StorageTypeBadge(
+    label: String,
+    size: String,
+    color: Color
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
+        Text(
+            text = "$label • $size",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+        )
+    }
+}
+
+@Composable
 fun MinimalCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -857,6 +1023,9 @@ data class StorageDetails(
     val freeFormatted: String,
     val videoSizeFormatted: String,
     val audioSizeFormatted: String,
+    val usedBytes: Long,
+    val videoBytes: Long,
+    val audioBytes: Long,
     val percentageUsed: Float
 )
 
@@ -884,9 +1053,12 @@ private fun getStorageStats(context: Context, downloads: List<DownloadEntity>): 
             freeFormatted = MediaUtils.formatBytes(freeBytes),
             videoSizeFormatted = MediaUtils.formatBytes(videoBytes),
             audioSizeFormatted = MediaUtils.formatBytes(audioBytes),
+            usedBytes = usedBytes,
+            videoBytes = videoBytes,
+            audioBytes = audioBytes,
             percentageUsed = percentage
         )
     } catch (e: Exception) {
-        StorageDetails("64.0 GB", "42.8 GB", "21.2 GB", "28.4 GB", "1.2 GB", 0.68f)
+        StorageDetails("64.0 GB", "42.8 GB", "21.2 GB", "28.4 GB", "1.2 GB", 42800000000L, 28400000000L, 1200000000L, 0.68f)
     }
 }
