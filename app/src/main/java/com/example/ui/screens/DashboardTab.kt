@@ -8,12 +8,14 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -22,7 +24,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -58,6 +62,15 @@ fun DashboardTab(
     val downloads by viewModel.publicDownloads.collectAsState()
     val isIncognito by viewModel.isIncognito.collectAsState()
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
+
+    val greeting = remember {
+        val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+        when (hour) {
+            in 0..11 -> "Good Morning"
+            in 12..16 -> "Good Afternoon"
+            else -> "Good Evening"
+        }
+    }
 
     // Download calculations
     val activeDownloads = downloads.filter { it.status == "DOWNLOADING" || it.status == "QUEUED" }
@@ -157,8 +170,8 @@ fun DashboardTab(
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp)
     ) {
         // 1. MINIMALIST GREETING HEADER
         item {
@@ -179,7 +192,7 @@ fun DashboardTab(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Dashboard",
+                        text = greeting,
                         style = MaterialTheme.typography.headlineMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = (-1).sp,
@@ -271,33 +284,46 @@ fun DashboardTab(
                     Icon(
                         imageVector = Icons.Default.Search,
                         contentDescription = "Search",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
-                    Box(modifier = Modifier.weight(1f)) {
-                        if (searchText.isEmpty()) {
-                            Text(
-                                text = "Search or enter URL...",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                            )
-                        }
-                        // In a real app, this would be a BasicTextField
-                        Text(
-                            text = searchText,
-                            style = MaterialTheme.typography.bodyLarge,
+                    BasicTextField(
+                        value = searchText,
+                        onValueChange = { searchText = it },
+                        modifier = Modifier.weight(1f),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
                             color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                        ),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        singleLine = true,
+                        decorationBox = { innerTextField ->
+                            if (searchText.isEmpty()) {
+                                Text(
+                                    text = "Search or enter URL...",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
                     if (searchText.isNotEmpty()) {
                         IconButton(
-                            onClick = { searchText = "" },
-                            modifier = Modifier.size(20.dp)
+                            onClick = { 
+                                if (searchText.startsWith("http")) {
+                                    viewModel.currentWebUrl.value = searchText
+                                    onNavigateToTab("Browser")
+                                } else if (searchText.isNotEmpty()) {
+                                    viewModel.currentWebUrl.value = "https://www.google.com/search?q=$searchText"
+                                    onNavigateToTab("Browser")
+                                }
+                            },
+                            modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Clear",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = "Go",
+                                tint = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -349,7 +375,8 @@ fun DashboardTab(
                 // Clock Card
                 MinimalCard(
                     onClick = {},
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -359,20 +386,22 @@ fun DashboardTab(
                             Icons.Default.AccessTime,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = currentTime,
                             style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.ExtraBold,
+                                fontWeight = FontWeight.Black,
                                 letterSpacing = 1.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         )
                         Text(
                             text = currentDate,
-                            style = MaterialTheme.typography.labelSmall,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Medium
+                            ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
                     }
@@ -381,7 +410,8 @@ fun DashboardTab(
                 // Connectivity Card
                 MinimalCard(
                     onClick = {},
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.2f)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -400,12 +430,12 @@ fun DashboardTab(
                                 "Poor", "Unstable" -> Color(0xFFF44336)
                                 else -> MaterialTheme.colorScheme.onSurfaceVariant
                             },
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = networkStatus,
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold),
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Row(
@@ -841,6 +871,60 @@ fun DashboardTab(
                 }
             }
         }
+
+        // 6. PRO TIPS / SYSTEM HEALTH
+        item {
+            Column(
+                modifier = Modifier.padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "ENGINE INSIGHTS",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.5.sp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    )
+                )
+
+                MinimalCard(
+                    onClick = {},
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Lightbulb,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier
+                                    .padding(10.dp)
+                                    .size(20.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Pro Tip",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Use Safe Browser to detect video links automatically on any website.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // PASTE SOCKET DIALOG
@@ -947,26 +1031,37 @@ fun QuickActionItem(
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.height(80.dp),
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier.height(90.dp),
+        shape = RoundedCornerShape(24.dp),
         color = containerColor,
-        tonalElevation = 2.dp
+        tonalElevation = 4.dp
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(12.dp),
+            modifier = Modifier.fillMaxSize().padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = label,
-                tint = contentColor,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(contentColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    tint = contentColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 11.sp
+                ),
                 color = contentColor,
                 textAlign = TextAlign.Center
             )
@@ -1002,13 +1097,14 @@ fun StorageTypeBadge(
 fun MinimalCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
     content: @Composable () -> Unit
 ) {
     Card(
         onClick = onClick,
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
