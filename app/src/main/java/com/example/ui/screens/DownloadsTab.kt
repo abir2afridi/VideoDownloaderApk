@@ -179,51 +179,52 @@ fun DownloadsTab(viewModel: MainViewModel) {
                 }
             }
 
-            // Total Queue Summary
+            // Total Queue Summary (Always Visible)
             val totalActiveSpeed = activeQueue.sumOf { it.speed }
-            if (activeQueue.size > 1 && totalActiveSpeed > 0) {
-                val totalRemaining = MediaUtils.getEstimatedRemainingTime(
+            val totalRemaining = if (totalActiveSpeed > 0) {
+                MediaUtils.getEstimatedRemainingTime(
                     activeQueue.sumOf { it.totalBytes },
                     activeQueue.sumOf { it.downloadedBytes },
                     totalActiveSpeed
                 )
-                Row(
+            } else "..."
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 20.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Bolt,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column {
-                        Text(
-                            text = "QUEUE SUMMARY",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.2.sp
-                            ),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                        )
-                        Text(
-                            text = "${MediaUtils.formatSpeed(totalActiveSpeed)} total bandwidth • $totalRemaining left",
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(
+                        text = "QUEUE SUMMARY",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.2.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = "${MediaUtils.formatSpeed(totalActiveSpeed)} total bandwidth • $totalRemaining left",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
 
@@ -340,8 +341,13 @@ fun DownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
             Spacer(modifier = Modifier.width(14.dp))
             
             Column(modifier = Modifier.weight(1f)) {
+                val displayTitle = if (item.title.isNotBlank() && item.title != "Stream Socket Link") {
+                    item.title
+                } else {
+                    item.filename
+                }
                 Text(
-                    text = item.title,
+                    text = displayTitle,
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -475,8 +481,13 @@ fun CompletedDownloadItemRow(item: DownloadEntity, viewModel: MainViewModel) {
             Spacer(modifier = Modifier.width(14.dp))
             
             Column(modifier = Modifier.weight(1f)) {
+                val displayTitle = if (item.title.isNotBlank() && item.title != "Stream Socket Link") {
+                    item.title
+                } else {
+                    item.filename
+                }
                 Text(
-                    text = item.title,
+                    text = displayTitle,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
