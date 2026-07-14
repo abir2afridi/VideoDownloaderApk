@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.viewmodel.MainViewModel
 import com.example.data.download.InstagramCookieStore
+import com.example.data.download.FacebookCookieStore
 import java.io.File
 import android.content.Intent
 import androidx.compose.foundation.border
@@ -421,6 +422,61 @@ fun SettingsTab(
                     Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Gray)
                     Spacer(modifier = Modifier.width(16.dp))
                     Text("Logout Instagram", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                }
+            }
+
+            val hasFbCookies = remember { mutableStateOf(FacebookCookieStore.hasCookies()) }
+
+            // Facebook Login via WebView
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { FacebookLoginActivity.start(context) }
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Cookie, contentDescription = null, tint = Color(0xFF1877F2))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Facebook Login", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = if (hasFbCookies.value) "Logged in — Facebook downloads enabled" else "Tap to login with Facebook (needed for downloads)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+                if (hasFbCookies.value) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Logged in",
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            if (hasFbCookies.value) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            FacebookCookieStore.clearCookies()
+                            hasFbCookies.value = false
+                            Toast.makeText(context, "Facebook session cleared", Toast.LENGTH_SHORT).show()
+                        }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Gray)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text("Logout Facebook", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
                 }
             }
 

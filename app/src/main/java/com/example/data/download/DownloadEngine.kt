@@ -37,6 +37,11 @@ object DownloadEngine {
             if (originalUrl.contains("tiktokcdn.com") || originalUrl.contains("tiktok.com")) {
                 requestBuilder.header("Referer", "https://www.tiktok.com/")
             }
+            if (originalUrl.contains("fbcdn") || originalUrl.contains("facebook.com") || originalUrl.contains("scontent")) {
+                requestBuilder.header("Referer", "https://www.facebook.com/")
+                val fbCookies = FacebookCookieStore.getCookies()
+                if (fbCookies.isNotBlank()) requestBuilder.header("Cookie", fbCookies)
+            }
             chain.proceed(requestBuilder.build())
         }
         .build()

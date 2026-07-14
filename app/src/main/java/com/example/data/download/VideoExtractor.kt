@@ -117,6 +117,56 @@ object InstagramCookieStore {
     }
 }
 
+/**
+ * Facebook cookie storage for authenticated extraction.
+ */
+object FacebookCookieStore {
+    private const val TAG = "FacebookCookieStore"
+    private var cachedCookies: String? = null
+    private var contextRef: android.content.Context? = null
+
+    fun init(context: android.content.Context) {
+        contextRef = context.applicationContext
+        val prefs = context.getSharedPreferences("facebook_cookies", android.content.Context.MODE_PRIVATE)
+        cachedCookies = prefs.getString("cookies", null)
+        Log.d(TAG, "Initialized, hasCookies=${!cachedCookies.isNullOrBlank()}")
+    }
+
+    fun setCookies(cookieString: String) {
+        cachedCookies = cookieString
+        val ctx = contextRef
+        if (ctx != null) {
+            val prefs = ctx.getSharedPreferences("facebook_cookies", android.content.Context.MODE_PRIVATE)
+            prefs.edit().putString("cookies", cookieString).apply()
+            Log.d(TAG, "Cookies saved: ${cookieString.length} chars")
+        }
+    }
+
+    fun getCookies(): String {
+        if (cachedCookies != null && cachedCookies!!.isNotBlank()) return cachedCookies!!
+        val ctx = contextRef
+        if (ctx != null) {
+            val prefs = ctx.getSharedPreferences("facebook_cookies", android.content.Context.MODE_PRIVATE)
+            cachedCookies = prefs.getString("cookies", null) ?: ""
+        }
+        return cachedCookies ?: ""
+    }
+
+    fun clearCookies() {
+        cachedCookies = ""
+        val ctx = contextRef
+        if (ctx != null) {
+            val prefs = ctx.getSharedPreferences("facebook_cookies", android.content.Context.MODE_PRIVATE)
+            prefs.edit().remove("cookies").apply()
+        }
+        Log.d(TAG, "Cookies cleared")
+    }
+
+    fun hasCookies(): Boolean {
+        return getCookies().isNotBlank()
+    }
+}
+
 object VideoExtractor {
     private const val TAG = "VideoExtractor"
     private const val MOBILE_API_HOST = "api16-normal-c-useast1a.tiktokv.com"
@@ -197,7 +247,8 @@ object VideoExtractor {
                     Log.d(TAG, "Success via Facebook extraction: ${fbResult.title}")
                     return Result.success(fbResult)
                 }
-                return Result.failure(Exception("Could not extract Facebook video. The video may be private or the link is invalid."))
+                val fbHint = if (FacebookCookieStore.hasCookies()) "" else " (try logging in via Settings → Social Media → Facebook Login)"
+                return Result.failure(Exception("Could not extract Facebook video$fbHint"))
             }
 
             // ── Twitter / X ──────────────────────────────────────
@@ -725,6 +776,13 @@ object VideoExtractor {
                 .followSslRedirects(true)
                 .build()
 
+            // Strategy 0: Third-party API (yt-dlp based, same as Instagram)
+            val apiResult = tryFacebookAPI(url, igClient)
+            if (apiResult != null) {
+                Log.d(TAG, "Facebook API extraction success")
+                return apiResult
+            }
+
             val canonicalUrl = resolveFacebookUrl(igClient, url)
             Log.d(TAG, "Facebook canonical URL: $canonicalUrl")
 
@@ -760,12 +818,57 @@ object VideoExtractor {
         }
     }
 
+    private fun tryFacebookAPI(url: String, client: OkHttpClient): TikTokVideoData? {
+        try {
+            val apiUrl = "https://r-gengpt-api.vercel.app/api/video/download?url=${java.net.URLEncoder.encode(url, "UTF-8")}"
+            val request = Request.Builder().url(apiUrl)
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/125.0.0.0 Mobile Safari/537.36")
+                .get().build()
+
+            val response = client.newCall(request).execute()
+            val body = response.body?.string() ?: return null
+            if (!response.isSuccessful) return null
+
+            Log.d(TAG, "Facebook API response length: ${body.length}")
+
+            val json = try { org.json.JSONObject(body) } catch (e: Exception) { return null }
+            val data = json.optJSONObject("data") ?: return null
+            val medias = data.optJSONArray("medias") ?: return null
+
+            for (i in 0 until medias.length()) {
+                val media = medias.optJSONObject(i) ?: continue
+                val type = media.optString("type", "")
+                if (type == "video") {
+                    val videoUrl = media.optString("url", "")
+                    if (videoUrl.isNotBlank()) {
+                        return TikTokVideoData(
+                            id = "",
+                            title = data.optString("title", ""),
+                            author = data.optString("author", "Facebook"),
+                            authorId = "",
+                            thumbnail = data.optString("thumbnail", ""),
+                            duration = data.optLong("duration", 0L),
+                            videoUrl = videoUrl,
+                            videoUrlNoWatermark = null,
+                            audioUrl = null
+                        )
+                    }
+                }
+            }
+            return null
+        } catch (e: Exception) {
+            Log.w(TAG, "Facebook API failed", e)
+            return null
+        }
+    }
+
     private fun resolveFacebookUrl(client: OkHttpClient, url: String): String {
         try {
-            val request = Request.Builder().url(url)
+            val builder = Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
-                .build()
-            val response = client.newCall(request).execute()
+            val fbCookies = FacebookCookieStore.getCookies()
+            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
+            val response = client.newCall(builder.build()).execute()
             return response.request.url.toString()
         } catch (e: Exception) {
             return url
@@ -775,13 +878,14 @@ object VideoExtractor {
     private fun extractFacebookEmbed(client: OkHttpClient, url: String): TikTokVideoData? {
         try {
             val embedUrl = "https://www.facebook.com/plugins/video.php?href=${java.net.URLEncoder.encode(url, "UTF-8")}&show_text=false&width=560"
-            val request = Request.Builder().url(embedUrl)
+            val builder = Request.Builder().url(embedUrl)
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "en-US,en;q=0.9")
-                .build()
+            val fbCookies = FacebookCookieStore.getCookies()
+            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
 
-            val response = client.newCall(request).execute()
+            val response = client.newCall(builder.build()).execute()
             val html = response.body?.string() ?: return null
             Log.d(TAG, "Facebook embed page length: ${html.length}")
 
@@ -799,13 +903,14 @@ object VideoExtractor {
                 .replace("https://web.facebook.com", "https://touch.facebook.com")
                 .replace("https://m.facebook.com", "https://touch.facebook.com")
 
-            val request = Request.Builder().url(touchUrl)
+            val builder = Request.Builder().url(touchUrl)
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "en-US,en;q=0.9")
-                .build()
+            val fbCookies = FacebookCookieStore.getCookies()
+            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
 
-            val response = client.newCall(request).execute()
+            val response = client.newCall(builder.build()).execute()
             val html = response.body?.string() ?: return null
             Log.d(TAG, "Facebook touch page length: ${html.length}")
 
@@ -824,13 +929,14 @@ object VideoExtractor {
                 .replace("https://web.facebook.com", "https://mbasic.facebook.com")
                 .replace("https://touch.facebook.com", "https://mbasic.facebook.com")
 
-            val request = Request.Builder().url(mbasicUrl)
+            val builder = Request.Builder().url(mbasicUrl)
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "en-US,en;q=0.9")
-                .build()
+            val fbCookies = FacebookCookieStore.getCookies()
+            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
 
-            val response = client.newCall(request).execute()
+            val response = client.newCall(builder.build()).execute()
             val html = response.body?.string() ?: return null
             Log.d(TAG, "Facebook mbasic page length: ${html.length}")
 
@@ -843,13 +949,14 @@ object VideoExtractor {
 
     private fun extractFacebookStandard(client: OkHttpClient, url: String): TikTokVideoData? {
         try {
-            val request = Request.Builder().url(url)
+            val builder = Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "en-US,en;q=0.9")
-                .build()
+            val fbCookies = FacebookCookieStore.getCookies()
+            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
 
-            val response = client.newCall(request).execute()
+            val response = client.newCall(builder.build()).execute()
             val html = response.body?.string() ?: return null
             Log.d(TAG, "Facebook standard page length: ${html.length}")
 
