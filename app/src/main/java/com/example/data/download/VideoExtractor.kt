@@ -247,8 +247,7 @@ object VideoExtractor {
                     Log.d(TAG, "Success via Facebook extraction: ${fbResult.title}")
                     return Result.success(fbResult)
                 }
-                val fbHint = if (FacebookCookieStore.hasCookies()) "" else " (try logging in via Settings → Social Media → Facebook Login)"
-                return Result.failure(Exception("Could not extract Facebook video$fbHint"))
+                return Result.failure(Exception("Could not extract Facebook video. The video may be private or the link is invalid."))
             }
 
             // ── Twitter / X ──────────────────────────────────────
@@ -866,8 +865,6 @@ object VideoExtractor {
         try {
             val builder = Request.Builder().url(url)
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
-            val fbCookies = FacebookCookieStore.getCookies()
-            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
             val response = client.newCall(builder.build()).execute()
             return response.request.url.toString()
         } catch (e: Exception) {
@@ -882,8 +879,6 @@ object VideoExtractor {
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "en-US,en;q=0.9")
-            val fbCookies = FacebookCookieStore.getCookies()
-            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
 
             val response = client.newCall(builder.build()).execute()
             val html = response.body?.string() ?: return null
@@ -907,8 +902,6 @@ object VideoExtractor {
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "en-US,en;q=0.9")
-            val fbCookies = FacebookCookieStore.getCookies()
-            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
 
             val response = client.newCall(builder.build()).execute()
             val html = response.body?.string() ?: return null
@@ -933,8 +926,6 @@ object VideoExtractor {
                 .header("User-Agent", "Mozilla/5.0 (Linux; Android 12; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "en-US,en;q=0.9")
-            val fbCookies = FacebookCookieStore.getCookies()
-            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
 
             val response = client.newCall(builder.build()).execute()
             val html = response.body?.string() ?: return null
@@ -953,8 +944,6 @@ object VideoExtractor {
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
                 .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                 .header("Accept-Language", "en-US,en;q=0.9")
-            val fbCookies = FacebookCookieStore.getCookies()
-            if (fbCookies.isNotBlank()) builder.header("Cookie", fbCookies)
 
             val response = client.newCall(builder.build()).execute()
             val html = response.body?.string() ?: return null

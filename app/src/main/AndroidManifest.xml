@@ -28,18 +28,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".ui.screens.InstagramLoginActivity"
-            android:exported="false"
-            android:label="Instagram Login"
-            android:theme="@style/Theme.MyApplication" />
-
-        <activity
-            android:name=".ui.screens.FacebookLoginActivity"
-            android:exported="false"
-            android:label="Facebook Login"
-            android:theme="@style/Theme.MyApplication" />
-
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

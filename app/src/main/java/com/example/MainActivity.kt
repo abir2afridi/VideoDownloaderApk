@@ -46,7 +46,6 @@ import com.example.ui.screens.*
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.MainViewModel
 import com.example.data.download.InstagramCookieStore
-import com.example.data.download.FacebookCookieStore
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -55,9 +54,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Initialize cookie stores
+        // Initialize cookie store
         InstagramCookieStore.init(this)
-        FacebookCookieStore.init(this)
         
         setContent {
             val isAmoledMode by viewModel.isAmoledMode.collectAsState()
