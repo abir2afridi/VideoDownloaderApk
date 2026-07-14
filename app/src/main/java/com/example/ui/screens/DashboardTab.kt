@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -29,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -425,6 +423,8 @@ fun DashboardTab(
                                     val speedText = MediaUtils.formatSpeed(totalSpeed)
                                     val timeText = if (totalRemainingTime != null) " • $totalRemainingTime" else ""
                                     "Downloading • $speedText$timeText"
+                                } else if (linkText.contains("tiktok.com") || linkText.contains("vt.tiktok.com")) {
+                                    "TikTok Video Detected"
                                 } else {
                                     "Ready to Download"
                                 },
@@ -509,7 +509,13 @@ fun DashboardTab(
                                         )
                                     },
                                     onFailure = { error ->
-                                        tiktokError = error.message ?: "Failed to analyze TikTok link"
+                                        tiktokError = when {
+                                            error.message?.contains("Network", true) == true -> "Can't reach TikTok. Check your connection."
+                                            error.message?.contains("HTTP 403", true) == true -> "TikTok blocked this request. Try again later."
+                                            error.message?.contains("HTTP 404", true) == true -> "Video not found or was deleted."
+                                            error.message?.contains("video ID", true) == true -> "Invalid TikTok link format."
+                                            else -> "This TikTok video can't be downloaded right now."
+                                        }
                                     }
                                 )
                                 isFetchingTikTok = false
@@ -561,7 +567,7 @@ fun DashboardTab(
                                             contentScale = ContentScale.Crop
                                         )
                                         Spacer(modifier = Modifier.width(12.dp))
-                                        Column {
+                                        Column(modifier = Modifier.weight(1f)) {
                                             Text(
                                                 text = tiktokInfo!!.title,
                                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
@@ -573,6 +579,9 @@ fun DashboardTab(
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
+                                        }
+                                        IconButton(onClick = { linkText = "" }) {
+                                            Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
                                         }
                                     }
 
@@ -665,27 +674,28 @@ fun DashboardTab(
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
-                                    BasicTextField(
+                                    TextField(
                                         value = linkText,
                                         onValueChange = { linkText = it },
                                         modifier = Modifier
                                             .weight(1f)
                                             .focusable(),
                                         textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                                         singleLine = true,
-                                        decorationBox = { innerTextField ->
-                                            Box(modifier = Modifier.fillMaxWidth()) {
-                                                if (linkText.isEmpty()) {
-                                                    Text(
-                                                        text = "Paste link here...",
-                                                        style = MaterialTheme.typography.bodyMedium,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                                    )
-                                                }
-                                                innerTextField()
-                                            }
-                                        }
+                                        placeholder = {
+                                            Text(
+                                                text = "Paste link here...",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                            )
+                                        },
+                                        colors = TextFieldDefaults.colors(
+                                            focusedContainerColor = Color.Transparent,
+                                            unfocusedContainerColor = Color.Transparent,
+                                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                                            unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
+                                            cursorColor = MaterialTheme.colorScheme.primary
+                                        )
                                     )
                                     IconButton(
                                         onClick = {

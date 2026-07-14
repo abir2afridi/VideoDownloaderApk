@@ -27,13 +27,17 @@ object DownloadEngine {
         .writeTimeout(60, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
+        .cookieJar(TikTokCookieStore.cookieJar)
         .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+            val originalUrl = chain.request().url.toString()
+            val requestBuilder = chain.request().newBuilder()
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
                 .header("Accept", "*/*")
                 .header("Connection", "keep-alive")
-                .build()
-            chain.proceed(request)
+            if (originalUrl.contains("tiktokcdn.com") || originalUrl.contains("tiktok.com")) {
+                requestBuilder.header("Referer", "https://www.tiktok.com/")
+            }
+            chain.proceed(requestBuilder.build())
         }
         .build()
 

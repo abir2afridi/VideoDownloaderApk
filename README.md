@@ -6,6 +6,7 @@ An Android application for downloading videos and media from the web with a buil
 
 - **In-App Browser** — Full WebView with incognito mode, HTTPS-only toggle, tracker blocking, bookmarking, and media detection via JavaScript bridge
 - **Multi-Threaded Download Engine** — Segmented (chunked) downloads with pause/resume, real-time speed tracking, and adaptive threading
+- **TikTok Downloader** — Paste TikTok links (including `vt.tiktok.com` / `vm.tiktok.com` short links) on the dashboard; extracts video info, quality options (HD no-watermark, watermarked, audio-only), and downloads directly
 - **Media Detection** — Automatically detects `<video>` and downloadable media links (`.mp4`, `.mp3`, `.m4a`) on web pages
 - **Download Queue** — Active downloads section with progress bars, speed indicators, estimated remaining time, and health badges
 - **Private Vault** — PIN-protected secure storage for sensitive downloads; files hidden from device gallery
@@ -74,6 +75,8 @@ app/src/main/java/com/example/
 │   │   └── AppDatabase.kt             # Room database singleton
 │   └── download/                      # Download engine + utilities
 │       ├── DownloadEngine.kt          # Multi/single-thread download manager
+│       ├── TikTokExtractor.kt         # TikTok video extraction (TikWM API + 9 fallback strategies)
+│       ├── TikTokCookieStore.kt       # Shared CookieJar for TikTok requests
 │       ├── MediaUtils.kt              # Formatting, filename parsing
 │       └── DownloadIntegrityWorker.kt # Periodic health checks via WorkManager
 ```
