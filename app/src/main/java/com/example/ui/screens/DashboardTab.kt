@@ -97,7 +97,7 @@ fun DashboardTab(
                     PlatformInfo("YouTube", "https://www.google.com/s2/favicons?sz=64&domain=youtube.com")
                 host.contains("instagram.com") ->
                     PlatformInfo("Instagram", "https://www.google.com/s2/favicons?sz=64&domain=instagram.com")
-                host.contains("facebook.com") || host.contains("fb.watch") ->
+                host.contains("facebook.com") || host.contains("fb.watch") || host.contains("fb.com") ->
                     PlatformInfo("Facebook", "https://www.google.com/s2/favicons?sz=64&domain=facebook.com")
                 host.contains("twitter.com") || host.contains("x.com") ->
                     PlatformInfo("X / Twitter", "https://www.google.com/s2/favicons?sz=64&domain=x.com")
@@ -107,15 +107,35 @@ fun DashboardTab(
                     PlatformInfo("Pinterest", "https://www.google.com/s2/favicons?sz=64&domain=pinterest.com")
                 host.contains("soundcloud.com") ->
                     PlatformInfo("SoundCloud", "https://www.google.com/s2/favicons?sz=64&domain=soundcloud.com")
-                host.contains("vimeo.com") ->
+                host.contains("vimeo.com") || host.contains("player.vimeo.com") ->
                     PlatformInfo("Vimeo", "https://www.google.com/s2/favicons?sz=64&domain=vimeo.com")
-                host.contains("twitch.tv") ->
-                    PlatformInfo("Twitch", "https://www.google.com/s2/favicons?sz=64&domain=twitch.com")
+                host.contains("twitch.tv") || host.contains("clips.twitch.tv") ->
+                    PlatformInfo("Twitch", "https://www.google.com/s2/favicons?sz=64&domain=twitch.tv")
                 host.contains("dailymotion.com") || host.contains("dai.ly") ->
                     PlatformInfo("Dailymotion", "https://www.google.com/s2/favicons?sz=64&domain=dailymotion.com")
                 host.contains("tumblr.com") ->
                     PlatformInfo("Tumblr", "https://www.google.com/s2/favicons?sz=64&domain=tumblr.com")
-                else -> null
+                host.contains("linkedin.com") || host.contains("linke.in") ->
+                    PlatformInfo("LinkedIn", "https://www.google.com/s2/favicons?sz=64&domain=linkedin.com")
+                host.contains("spotify.com") || host.contains("open.spotify.com") ->
+                    PlatformInfo("Spotify", "https://www.google.com/s2/favicons?sz=64&domain=spotify.com")
+                host.contains("streamable.com") ->
+                    PlatformInfo("Streamable", "https://www.google.com/s2/favicons?sz=64&domain=streamable.com")
+                host.contains("imgur.com") ->
+                    PlatformInfo("Imgur", "https://www.google.com/s2/favicons?sz=64&domain=imgur.com")
+                host.contains("flickr.com") ->
+                    PlatformInfo("Flickr", "https://www.google.com/s2/favicons?sz=64&domain=flickr.com")
+                host.contains("rumble.com") ->
+                    PlatformInfo("Rumble", "https://www.google.com/s2/favicons?sz=64&domain=rumble.com")
+                host.contains("odysee.com") || host.contains("lbry.tv") ->
+                    PlatformInfo("Odysee", "https://www.google.com/s2/favicons?sz=64&domain=odysee.com")
+                host.contains("bitchute.com") ->
+                    PlatformInfo("Bitchute", "https://www.google.com/s2/favicons?sz=64&domain=bitchute.com")
+                host.contains("streamja.com") ->
+                    PlatformInfo("Streamja", "https://www.google.com/s2/favicons?sz=64&domain=streamja.com")
+                host.contains("clippit.com") || host.contains("a.pomfe.co") ->
+                    PlatformInfo("Clippit", "https://www.google.com/s2/favicons?sz=64&domain=clippit.com")
+                else -> PlatformInfo("Website", "https://www.google.com/s2/favicons?sz=64&domain=$host")
             }
         } catch (e: Exception) { null }
     }
@@ -520,10 +540,10 @@ fun DashboardTab(
                             )
                         }
                     } else {
-                        val isTikTokUrl = linkText.contains("tiktok.com") || linkText.contains("vt.tiktok.com")
                         var isFetching by remember { mutableStateOf(false) }
                         var analyzeError by remember { mutableStateOf<String?>(null) }
                         var tiktokInfo by remember { mutableStateOf<TikTokVideoInfo?>(null) }
+                        val isTikTokUrl = linkText.contains("tiktok.com") || linkText.contains("vt.tiktok.com")
 
                         LaunchedEffect(analyzeRequested) {
                             if (analyzeRequested && linkText.isNotBlank()) {
@@ -536,18 +556,41 @@ fun DashboardTab(
                                 result.fold(
                                     onSuccess = { data ->
                                         val qualities = mutableListOf<TikTokQuality>()
+                                        // TikTok-specific labels
+                                        val isTiktok = linkText.contains("tiktok.com")
                                         data.videoUrlNoWatermark?.let { url ->
-                                            qualities.add(TikTokQuality("HD (No Watermark)", "—", "MP4", url))
+                                            qualities.add(TikTokQuality(
+                                                if (isTiktok) "HD (No Watermark)" else "Download",
+                                                "—", "MP4", url
+                                            ))
                                         }
                                         data.videoUrl?.let { url ->
-                                            qualities.add(TikTokQuality("With Watermark", "—", "MP4", url))
+                                            qualities.add(TikTokQuality(
+                                                if (isTiktok) "With Watermark" else "Download",
+                                                "—", "MP4", url
+                                            ))
                                         }
                                         data.audioUrl?.let { url ->
                                             qualities.add(TikTokQuality("Audio Only", "—", "MP3", url))
                                         }
+                                        // Determine platform name for display
+                                        val platformName = when {
+                                            linkText.contains("tiktok.com") -> "TikTok"
+                                            linkText.contains("instagram.com") -> "Instagram"
+                                            linkText.contains("facebook.com") || linkText.contains("fb.watch") -> "Facebook"
+                                            linkText.contains("twitter.com") || linkText.contains("x.com") -> "X / Twitter"
+                                            linkText.contains("reddit.com") -> "Reddit"
+                                            linkText.contains("pinterest.com") -> "Pinterest"
+                                            linkText.contains("soundcloud.com") -> "SoundCloud"
+                                            linkText.contains("vimeo.com") -> "Vimeo"
+                                            linkText.contains("twitch.tv") -> "Twitch"
+                                            linkText.contains("dailymotion.com") -> "Dailymotion"
+                                            linkText.contains("tumblr.com") -> "Tumblr"
+                                            else -> "Video"
+                                        }
                                         tiktokInfo = TikTokVideoInfo(
                                             id = data.id,
-                                            title = data.title.ifBlank { "TikTok Video" },
+                                            title = data.title.ifBlank { "$platformName Video" },
                                             author = data.author.ifBlank { data.authorId },
                                             thumbnail = data.thumbnail,
                                             duration = formatDuration(data.duration),
@@ -556,11 +599,11 @@ fun DashboardTab(
                                     },
                                     onFailure = { error ->
                                         analyzeError = when {
-                                            error.message?.contains("Network", true) == true -> "Can't reach TikTok. Check your connection."
-                                            error.message?.contains("HTTP 403", true) == true -> "TikTok blocked this request. Try again later."
+                                            error.message?.contains("Network", true) == true -> "Can't reach the server. Check your connection."
+                                            error.message?.contains("HTTP 403", true) == true -> "Server blocked this request. Try again later."
                                             error.message?.contains("HTTP 404", true) == true -> "Video not found or was deleted."
-                                            error.message?.contains("video ID", true) == true -> "Invalid TikTok link format."
-                                            else -> "This TikTok video can't be downloaded right now."
+                                            error.message?.contains("video ID", true) == true -> "Invalid link format."
+                                            else -> error.message ?: "Could not download this video."
                                         }
                                     }
                                 )
@@ -606,8 +649,24 @@ fun DashboardTab(
                                         .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    val thumbnailDomain = remember(tiktokInfo) {
+                                        when {
+                                            linkText.contains("tiktok.com") -> "tiktok.com"
+                                            linkText.contains("instagram.com") -> "instagram.com"
+                                            linkText.contains("facebook.com") || linkText.contains("fb.watch") -> "facebook.com"
+                                            linkText.contains("twitter.com") || linkText.contains("x.com") -> "x.com"
+                                            linkText.contains("reddit.com") -> "reddit.com"
+                                            linkText.contains("pinterest.com") -> "pinterest.com"
+                                            linkText.contains("soundcloud.com") -> "soundcloud.com"
+                                            linkText.contains("vimeo.com") -> "vimeo.com"
+                                            linkText.contains("twitch.tv") -> "twitch.tv"
+                                            linkText.contains("dailymotion.com") -> "dailymotion.com"
+                                            linkText.contains("tumblr.com") -> "tumblr.com"
+                                            else -> "video"
+                                        }
+                                    }
                                     AsyncImage(
-                                        model = tiktokInfo!!.thumbnail.ifEmpty { "https://www.google.com/s2/favicons?sz=64&domain=tiktok.com" },
+                                        model = tiktokInfo!!.thumbnail.ifEmpty { "https://www.google.com/s2/favicons?sz=64&domain=$thumbnailDomain" },
                                         contentDescription = null,
                                         modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
                                         contentScale = ContentScale.Crop

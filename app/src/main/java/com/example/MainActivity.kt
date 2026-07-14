@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.screens.*
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.MainViewModel
+import com.example.data.download.InstagramCookieStore
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -52,6 +53,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // Initialize Instagram cookie store
+        InstagramCookieStore.init(this)
+        
         setContent {
             val isAmoledMode by viewModel.isAmoledMode.collectAsState()
             val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
