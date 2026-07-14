@@ -83,6 +83,44 @@ fun DashboardTab(
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
 
     var linkText by remember { mutableStateOf("") }
+    var analyzeRequested by remember { mutableStateOf(false) }
+
+    data class PlatformInfo(val name: String, val faviconUrl: String)
+    fun detectPlatform(url: String): PlatformInfo? {
+        if (!url.startsWith("http")) return null
+        return try {
+            val host = android.net.Uri.parse(url).host?.lowercase() ?: return null
+            when {
+                host.contains("tiktok.com") || host.contains("vt.tiktok.com") || host.contains("vm.tiktok.com") ->
+                    PlatformInfo("TikTok", "https://www.google.com/s2/favicons?sz=64&domain=tiktok.com")
+                host.contains("youtube.com") || host.contains("youtu.be") ->
+                    PlatformInfo("YouTube", "https://www.google.com/s2/favicons?sz=64&domain=youtube.com")
+                host.contains("instagram.com") ->
+                    PlatformInfo("Instagram", "https://www.google.com/s2/favicons?sz=64&domain=instagram.com")
+                host.contains("facebook.com") || host.contains("fb.watch") ->
+                    PlatformInfo("Facebook", "https://www.google.com/s2/favicons?sz=64&domain=facebook.com")
+                host.contains("twitter.com") || host.contains("x.com") ->
+                    PlatformInfo("X / Twitter", "https://www.google.com/s2/favicons?sz=64&domain=x.com")
+                host.contains("reddit.com") || host.contains("redd.it") ->
+                    PlatformInfo("Reddit", "https://www.google.com/s2/favicons?sz=64&domain=reddit.com")
+                host.contains("pinterest.com") || host.contains("pin.it") ->
+                    PlatformInfo("Pinterest", "https://www.google.com/s2/favicons?sz=64&domain=pinterest.com")
+                host.contains("soundcloud.com") ->
+                    PlatformInfo("SoundCloud", "https://www.google.com/s2/favicons?sz=64&domain=soundcloud.com")
+                host.contains("vimeo.com") ->
+                    PlatformInfo("Vimeo", "https://www.google.com/s2/favicons?sz=64&domain=vimeo.com")
+                host.contains("twitch.tv") ->
+                    PlatformInfo("Twitch", "https://www.google.com/s2/favicons?sz=64&domain=twitch.com")
+                host.contains("dailymotion.com") || host.contains("dai.ly") ->
+                    PlatformInfo("Dailymotion", "https://www.google.com/s2/favicons?sz=64&domain=dailymotion.com")
+                host.contains("tumblr.com") ->
+                    PlatformInfo("Tumblr", "https://www.google.com/s2/favicons?sz=64&domain=tumblr.com")
+                else -> null
+            }
+        } catch (e: Exception) { null }
+    }
+
+    val detectedPlatform = remember(linkText) { detectPlatform(linkText) }
 
     val greeting = remember {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -423,8 +461,8 @@ fun DashboardTab(
                                     val speedText = MediaUtils.formatSpeed(totalSpeed)
                                     val timeText = if (totalRemainingTime != null) " • $totalRemainingTime" else ""
                                     "Downloading • $speedText$timeText"
-                                } else if (linkText.contains("tiktok.com") || linkText.contains("vt.tiktok.com")) {
-                                    "TikTok Video Detected"
+                                } else if (detectedPlatform != null) {
+                                    "${detectedPlatform.name} Video Detected"
                                 } else {
                                     "Ready to Download"
                                 },
@@ -435,13 +473,22 @@ fun DashboardTab(
                             )
                         }
 
-                        // Subtle clean functional icon
-                        Icon(
-                            imageVector = if (activeTasksCount > 0) Icons.Default.CloudSync else Icons.Outlined.CloudQueue,
-                            contentDescription = null,
-                            tint = if (activeTasksCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                            modifier = Modifier.size(22.dp)
-                        )
+                        // Show favicon when platform detected, otherwise cloud icon
+                        if (detectedPlatform != null && activeTasksCount == 0) {
+                            AsyncImage(
+                                model = detectedPlatform.faviconUrl,
+                                contentDescription = detectedPlatform.name,
+                                modifier = Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)),
+                                contentScale = ContentScale.Fit
+                            )
+                        } else {
+                            Icon(
+                                imageVector = if (activeTasksCount > 0) Icons.Default.CloudSync else Icons.Outlined.CloudQueue,
+                                contentDescription = null,
+                                tint = if (activeTasksCount > 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
                     }
 
                     if (activeTasksCount > 0) {
@@ -474,16 +521,15 @@ fun DashboardTab(
                         }
                     } else {
                         val isTikTokUrl = linkText.contains("tiktok.com") || linkText.contains("vt.tiktok.com")
-                        var isFetchingTikTok by remember { mutableStateOf(false) }
-                        var tiktokError by remember { mutableStateOf<String?>(null) }
+                        var isFetching by remember { mutableStateOf(false) }
+                        var analyzeError by remember { mutableStateOf<String?>(null) }
                         var tiktokInfo by remember { mutableStateOf<TikTokVideoInfo?>(null) }
 
-                        LaunchedEffect(linkText) {
-                            tiktokInfo = null
-                            tiktokError = null
-                            if (isTikTokUrl) {
-                                isFetchingTikTok = true
-                                delay(600)
+                        LaunchedEffect(analyzeRequested) {
+                            if (analyzeRequested && linkText.isNotBlank()) {
+                                tiktokInfo = null
+                                analyzeError = null
+                                isFetching = true
                                 val result = withContext(Dispatchers.IO) {
                                     TikTokExtractor.extract(linkText)
                                 }
@@ -509,7 +555,7 @@ fun DashboardTab(
                                         )
                                     },
                                     onFailure = { error ->
-                                        tiktokError = when {
+                                        analyzeError = when {
                                             error.message?.contains("Network", true) == true -> "Can't reach TikTok. Check your connection."
                                             error.message?.contains("HTTP 403", true) == true -> "TikTok blocked this request. Try again later."
                                             error.message?.contains("HTTP 404", true) == true -> "Video not found or was deleted."
@@ -518,219 +564,232 @@ fun DashboardTab(
                                         }
                                     }
                                 )
-                                isFetchingTikTok = false
+                                isFetching = false
+                                analyzeRequested = false
                             }
                         }
 
-                        if (isTikTokUrl) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                if (isFetchingTikTok) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Text("Analyzing TikTok link...", style = MaterialTheme.typography.bodyMedium)
-                                    }
-                                } else if (tiktokError != null) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(8.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if (isFetching) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text("Analyzing link...", style = MaterialTheme.typography.bodyMedium)
+                                }
+                            } else if (analyzeError != null) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = analyzeError ?: "Unknown error",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            } else if (tiktokInfo != null) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AsyncImage(
+                                        model = tiktokInfo!!.thumbnail.ifEmpty { "https://www.google.com/s2/favicons?sz=64&domain=tiktok.com" },
+                                        contentDescription = null,
+                                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            text = tiktokError ?: "Unknown error",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.error
+                                            text = tiktokInfo!!.title,
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "${tiktokInfo!!.author} • ${tiktokInfo!!.duration}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
-                                } else if (tiktokInfo != null) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-                                            .padding(12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        AsyncImage(
-                                            model = tiktokInfo!!.thumbnail.ifEmpty { "https://www.google.com/s2/favicons?sz=64&domain=tiktok.com" },
-                                            contentDescription = null,
-                                            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(8.dp)),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = tiktokInfo!!.title,
-                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                    IconButton(onClick = { linkText = ""; tiktokInfo = null; analyzeError = null }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
+                                    }
+                                }
+
+                                Text(
+                                    text = "Choose Quality",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+
+                                tiktokInfo!!.qualities.forEach { quality ->
+                                    Surface(
+                                        onClick = {
+                                            viewModel.addDownload(
+                                                url = quality.url,
+                                                suggestedTitle = "${tiktokInfo!!.author} - ${tiktokInfo!!.title}",
+                                                isAudioOnly = quality.format == "MP3",
+                                                quality = quality.label
                                             )
+                                            linkText = ""
+                                            tiktokInfo = null
+                                            Toast.makeText(context, "Download Started", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = if (quality.format == "MP3") Icons.Default.Audiotrack else Icons.Default.PlayCircle,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                                Spacer(modifier = Modifier.width(12.dp))
+                                                Text(
+                                                    text = quality.label,
+                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                                                )
+                                            }
                                             Text(
-                                                text = "${tiktokInfo!!.author} • ${tiktokInfo!!.duration}",
-                                                style = MaterialTheme.typography.labelSmall,
+                                                text = quality.size,
+                                                style = MaterialTheme.typography.labelMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
-                                        IconButton(onClick = { linkText = "" }) {
-                                            Icon(Icons.Default.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
-                                        }
-                                    }
-
-                                    Text(
-                                        text = "Choose Quality",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-
-                                    tiktokInfo!!.qualities.forEach { quality ->
-                                        Surface(
-                                            onClick = {
-                                                viewModel.addDownload(
-                                                    url = quality.url,
-                                                    suggestedTitle = "${tiktokInfo!!.author} - ${tiktokInfo!!.title}",
-                                                    isAudioOnly = quality.format == "MP3",
-                                                    quality = quality.label
-                                                )
-                                                linkText = ""
-                                                Toast.makeText(context, "TikTok Download Started", Toast.LENGTH_SHORT).show()
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(12.dp),
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.05f),
-                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(12.dp),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    Icon(
-                                                        imageVector = if (quality.format == "MP3") Icons.Default.Audiotrack else Icons.Default.PlayCircle,
-                                                        contentDescription = null,
-                                                        modifier = Modifier.size(18.dp),
-                                                        tint = MaterialTheme.colorScheme.primary
-                                                    )
-                                                    Spacer(modifier = Modifier.width(12.dp))
-                                                    Text(
-                                                        text = quality.label,
-                                                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
-                                                    )
-                                                }
-                                                Text(
-                                                    text = quality.size,
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                )
-                                            }
-                                        }
                                     }
                                 }
-                            }
-                        } else {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            } else {
+                                // Input field + Analyze button
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
                                 ) {
-                                    val faviconUrl = remember(linkText) {
-                                        if (linkText.startsWith("http")) {
-                                            try {
-                                                val domain = android.net.Uri.parse(linkText).host
-                                                if (!domain.isNullOrBlank()) {
-                                                    "https://www.google.com/s2/favicons?sz=64&domain=$domain"
-                                                } else null
-                                            } catch (e: Exception) { null }
-                                        } else null
-                                    }
-
-                                    if (faviconUrl != null) {
-                                        AsyncImage(
-                                            model = faviconUrl,
-                                            contentDescription = "Favicon",
-                                            modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)),
-                                            contentScale = ContentScale.Fit
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.Link,
-                                            contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    TextField(
-                                        value = linkText,
-                                        onValueChange = { linkText = it },
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .focusable(),
-                                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                                        singleLine = true,
-                                        placeholder = {
-                                            Text(
-                                                text = "Paste link here...",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                            )
-                                        },
-                                        colors = TextFieldDefaults.colors(
-                                            focusedContainerColor = Color.Transparent,
-                                            unfocusedContainerColor = Color.Transparent,
-                                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                                            unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
-                                            cursorColor = MaterialTheme.colorScheme.primary
-                                        )
-                                    )
-                                    IconButton(
-                                        onClick = {
-                                            val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                                            val clipData = clip?.primaryClip
-                                            if (clipData != null && clipData.itemCount > 0) {
-                                                val text = clipData.getItemAt(0).text?.toString()
-                                                if (!text.isNullOrBlank()) {
-                                                    linkText = text
-                                                }
-                                            }
-                                        },
-                                        modifier = Modifier.size(28.dp)
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
-                                        Icon(
-                                            imageVector = Icons.Default.ContentPaste,
-                                            contentDescription = "Paste",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(18.dp)
+                                        val faviconUrl = remember(linkText) {
+                                            if (linkText.startsWith("http")) {
+                                                try {
+                                                    val domain = android.net.Uri.parse(linkText).host
+                                                    if (!domain.isNullOrBlank()) {
+                                                        "https://www.google.com/s2/favicons?sz=64&domain=$domain"
+                                                    } else null
+                                                } catch (e: Exception) { null }
+                                            } else null
+                                        }
+
+                                        if (faviconUrl != null) {
+                                            AsyncImage(
+                                                model = faviconUrl,
+                                                contentDescription = "Favicon",
+                                                modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)),
+                                                contentScale = ContentScale.Fit
+                                            )
+                                        } else {
+                                            Icon(
+                                                imageVector = Icons.Default.Link,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                        TextField(
+                                            value = linkText,
+                                            onValueChange = { linkText = it; analyzeError = null },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .focusable(),
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                                            singleLine = true,
+                                            placeholder = {
+                                                Text(
+                                                    text = "Paste link here...",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                                )
+                                            },
+                                            colors = TextFieldDefaults.colors(
+                                                focusedContainerColor = Color.Transparent,
+                                                unfocusedContainerColor = Color.Transparent,
+                                                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                                                unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
+                                                cursorColor = MaterialTheme.colorScheme.primary
+                                            )
                                         )
-                                    }
-                                    if (linkText.isNotEmpty()) {
                                         IconButton(
-                                            onClick = { 
-                                                viewModel.addDownload(linkText.trim(), "Manual Download")
-                                                linkText = ""
-                                                Toast.makeText(context, "Download queued", Toast.LENGTH_SHORT).show()
+                                            onClick = {
+                                                val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                                val clipData = clip?.primaryClip
+                                                if (clipData != null && clipData.itemCount > 0) {
+                                                    val text = clipData.getItemAt(0).text?.toString()
+                                                    if (!text.isNullOrBlank()) {
+                                                        linkText = text
+                                                    }
+                                                }
                                             },
                                             modifier = Modifier.size(28.dp)
                                         ) {
                                             Icon(
-                                                imageVector = Icons.Default.Download,
-                                                contentDescription = "Download",
+                                                imageVector = Icons.Default.ContentPaste,
+                                                contentDescription = "Paste",
                                                 tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(20.dp)
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                // Analyze button
+                                if (linkText.isNotBlank()) {
+                                    Surface(
+                                        onClick = { analyzeRequested = true },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.primary
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            horizontalArrangement = Arrangement.Center,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Search,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp),
+                                                tint = MaterialTheme.colorScheme.onPrimary
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Analyze",
+                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onPrimary
                                             )
                                         }
                                     }
