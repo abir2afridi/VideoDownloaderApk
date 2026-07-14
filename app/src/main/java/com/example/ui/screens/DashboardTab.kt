@@ -614,33 +614,152 @@ fun DashboardTab(
 
                         Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            // Input field — ALWAYS visible
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val faviconUrl = remember(linkText) {
+                                        if (linkText.startsWith("http")) {
+                                            try {
+                                                val domain = android.net.Uri.parse(linkText).host
+                                                if (!domain.isNullOrBlank()) {
+                                                    "https://www.google.com/s2/favicons?sz=64&domain=$domain"
+                                                } else null
+                                            } catch (e: Exception) { null }
+                                        } else null
+                                    }
+
+                                    if (faviconUrl != null) {
+                                        AsyncImage(
+                                            model = faviconUrl,
+                                            contentDescription = "Favicon",
+                                            modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Link,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    TextField(
+                                        value = linkText,
+                                        onValueChange = { linkText = it; analyzeError = null },
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .focusable(),
+                                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                                        singleLine = true,
+                                        placeholder = {
+                                            Text(
+                                                text = "Paste link here...",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                            )
+                                        },
+                                        colors = TextFieldDefaults.colors(
+                                            focusedContainerColor = Color.Transparent,
+                                            unfocusedContainerColor = Color.Transparent,
+                                            focusedIndicatorColor = MaterialTheme.colorScheme.primary,
+                                            unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
+                                            cursorColor = MaterialTheme.colorScheme.primary
+                                        )
+                                    )
+                                    IconButton(
+                                        onClick = {
+                                            val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
+                                            val clipData = clip?.primaryClip
+                                            if (clipData != null && clipData.itemCount > 0) {
+                                                val text = clipData.getItemAt(0).text?.toString()
+                                                if (!text.isNullOrBlank()) {
+                                                    linkText = text
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.ContentPaste,
+                                            contentDescription = "Paste",
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Analyze button — show when there's text and no results yet
+                            if (linkText.isNotBlank() && tiktokInfo == null && !isFetching) {
+                                Surface(
+                                    onClick = { analyzeRequested = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(12.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Search,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                            tint = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Analyze",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Loading indicator
                             if (isFetching) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Text("Analyzing link...", style = MaterialTheme.typography.bodyMedium)
                                 }
-                            } else if (analyzeError != null) {
+                            }
+
+                            // Error message — below input, input stays visible
+                            if (analyzeError != null) {
                                 Row(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
+                                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
                                         text = analyzeError ?: "Unknown error",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.error
                                     )
                                 }
-                            } else if (tiktokInfo != null) {
+                            }
+
+                            // Video info + quality picker
+                            if (tiktokInfo != null) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -736,119 +855,6 @@ fun DashboardTab(
                                                 text = quality.size,
                                                 style = MaterialTheme.typography.labelMedium,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        }
-                                    }
-                                }
-                            } else {
-                                // Input field + Analyze button
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f))
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        val faviconUrl = remember(linkText) {
-                                            if (linkText.startsWith("http")) {
-                                                try {
-                                                    val domain = android.net.Uri.parse(linkText).host
-                                                    if (!domain.isNullOrBlank()) {
-                                                        "https://www.google.com/s2/favicons?sz=64&domain=$domain"
-                                                    } else null
-                                                } catch (e: Exception) { null }
-                                            } else null
-                                        }
-
-                                        if (faviconUrl != null) {
-                                            AsyncImage(
-                                                model = faviconUrl,
-                                                contentDescription = "Favicon",
-                                                modifier = Modifier.size(20.dp).clip(RoundedCornerShape(4.dp)),
-                                                contentScale = ContentScale.Fit
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.Link,
-                                                contentDescription = null,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                        TextField(
-                                            value = linkText,
-                                            onValueChange = { linkText = it; analyzeError = null },
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .focusable(),
-                                            textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                                            singleLine = true,
-                                            placeholder = {
-                                                Text(
-                                                    text = "Paste link here...",
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                                                )
-                                            },
-                                            colors = TextFieldDefaults.colors(
-                                                focusedContainerColor = Color.Transparent,
-                                                unfocusedContainerColor = Color.Transparent,
-                                                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                                                unfocusedIndicatorColor = MaterialTheme.colorScheme.outline,
-                                                cursorColor = MaterialTheme.colorScheme.primary
-                                            )
-                                        )
-                                        IconButton(
-                                            onClick = {
-                                                val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-                                                val clipData = clip?.primaryClip
-                                                if (clipData != null && clipData.itemCount > 0) {
-                                                    val text = clipData.getItemAt(0).text?.toString()
-                                                    if (!text.isNullOrBlank()) {
-                                                        linkText = text
-                                                    }
-                                                }
-                                            },
-                                            modifier = Modifier.size(28.dp)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.ContentPaste,
-                                                contentDescription = "Paste",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Analyze button
-                                if (linkText.isNotBlank()) {
-                                    Surface(
-                                        onClick = { analyzeRequested = true },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = MaterialTheme.colorScheme.primary
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(12.dp),
-                                            horizontalArrangement = Arrangement.Center,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Search,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp),
-                                                tint = MaterialTheme.colorScheme.onPrimary
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(
-                                                text = "Analyze",
-                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                                                color = MaterialTheme.colorScheme.onPrimary
                                             )
                                         }
                                     }
