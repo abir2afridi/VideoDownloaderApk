@@ -34,32 +34,6 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK Components
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install \
-            "platforms;android-36" \
-            "build-tools;36.0.0" \
-            "platform-tools" \
-            "cmdline-tools;latest" \
-            "extras;android;m2repository" \
-            2>&1 || true
-        shell: bash
-
-      - name: Accept Licenses
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses 2>&1 || true
-        shell: bash
-
-      - name: Create .env file
-        run: |
-          cp .env.example .env 2>/dev/null || echo "" > .env
-        shell: bash
-
-      - name: Create google-services.json placeholder
-        run: |
-          echo '{"project_info":{"project_id":"placeholder"}}' > app/google-services.json
-        shell: bash
-
       - name: Decode Keystore
         if: env.STORE_PASSWORD != ''
         run: |
@@ -69,18 +43,11 @@ jobs:
       - name: Grant Gradle Permission
         run: chmod +x gradlew
 
-      - name: Clean Gradle Cache
-        run: rm -rf ~/.gradle/caches/ && rm -rf ~/.gradle/wrapper/
-
       - name: Build Release APK
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
-        env:
-          CI: true
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Build Release AAB
         run: ./gradlew bundleRelease --no-daemon
-        env:
-          CI: true
 
       - name: Generate Checksums
         run: |
@@ -89,7 +56,6 @@ jobs:
           sha256sum bundle/release/app-release.aab > bundle/release/app-release.aab.sha256
           md5sum apk/release/app-release.apk > apk/release/app-release.apk.md5
           md5sum bundle/release/app-release.aab > bundle/release/app-release.aab.md5
-        shell: bash
 
       - name: Generate Release Metadata
         run: |
@@ -108,7 +74,6 @@ jobs:
             }
           }
           EOF
-        shell: bash
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
