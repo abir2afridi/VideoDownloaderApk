@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0] — 2026-07-16
+
+### 🚀 Features
+
+- **Back Navigation to Home Tab** — System back gesture now navigates to the Home/Dashboard tab instead of exiting the app. Exit only works from the Home tab.
+
+### 📦 CI/CD
+
+- **Simplified Release Workflow** — Streamlined GitHub Actions release pipeline by removing redundant steps.
+
+---
+
 ## [1.1.0] — 2026-07-16
 
 ### 🚀 New Features
@@ -78,5 +90,6 @@
 - File library with category filtering
 - Material 3 design with customizable themes
 
-[1.1.0]: https://github.com/abir2afridi/NexLoad/releases/tag/v1.1.0
-[1.0.0]: https://github.com/abir2afridi/NexLoad/releases/tag/v1.0.0
+[1.2.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.2.0
+[1.1.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.1.0
+[1.0.0]: https://github.com/abir2afridi/NexLoad-Apk/releases/tag/v1.0.0
