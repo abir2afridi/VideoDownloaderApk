@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_PATH: ${{ github.workspace }}/keystore.jks
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Decode Keystore
+        if: env.STORE_PASSWORD != ''
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > $KEYSTORE_PATH
+        shell: bash
+
+      - name: Grant Gradle Permission
+        run: chmod +x gradlew
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Build Release AAB
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Generate Checksums
+        run: |
+          cd app/build/outputs
+          sha256sum apk/release/app-release.apk > apk/release/app-release.apk.sha256
+          sha256sum bundle/release/app-release.aab > bundle/release/app-release.aab.sha256
+          md5sum apk/release/app-release.apk > apk/release/app-release.apk.md5
+          md5sum bundle/release/app-release.aab > bundle/release/app-release.aab.md5
+
+      - name: Generate Release Metadata
+        run: |
+          cat > app/build/outputs/release.json << 'EOF'
+          {
+            "version": "1.1.0",
+            "versionCode": 2,
+            "date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "apk": {
+              "path": "apk/release/app-release.apk",
+              "size": "$(stat -c%s app/build/outputs/apk/release/app-release.apk)"
+            },
+            "aab": {
+              "path": "bundle/release/app-release.aab",
+              "size": "$(stat -c%s app/build/outputs/bundle/release/app-release.aab)"
+            }
+          }
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: NexLoad ${{ github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256
+            app/build/outputs/apk/release/app-release.apk.md5
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/bundle/release/app-release.aab.sha256
+            app/build/outputs/bundle/release/app-release.aab.md5
+            app/build/outputs/release.json
+            CHANGELOG.md
+            RELEASE_NOTES.md
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/release/app-release.apk.sha256
+            app/build/outputs/apk/release/app-release.apk.md5
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/bundle/release/app-release.aab.sha256
+            app/build/outputs/bundle/release/app-release.aab.md5
+            app/build/outputs/release.json

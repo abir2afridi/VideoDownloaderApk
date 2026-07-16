@@ -1,5 +1,19 @@
 # NexLoad — Smart Video Downloader
 
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/abir2afridi/NexLoad/releases/tag/v1.1.0)
+[![Release](https://img.shields.io/github/release/abir2afridi/NexLoad.svg)](https://github.com/abir2afridi/NexLoad/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Android](https://img.shields.io/badge/Android-7.0%2B-brightgreen.svg)](https://developer.android.com/about/versions/nougat)
+[![API](https://img.shields.io/badge/API-24%E2%80%9336-blueviolet.svg)](https://developer.android.com/studio/releases/platforms)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.2.10-purple.svg)](https://kotlinlang.org/)
+[![Build](https://img.shields.io/badge/build-passing-success.svg)](.github/workflows/release.yml)
+
+[⬇️ Download Latest APK](https://github.com/abir2afridi/NexLoad/releases/latest/download/app-release.apk)
+&nbsp;|&nbsp;
+[📜 Release Notes](https://github.com/abir2afridi/NexLoad/releases/latest)
+&nbsp;|&nbsp;
+[📋 Changelog](CHANGELOG.md)
+
 An Android application for downloading videos and media from the web with a built-in browser, multi-threaded download engine, and private vault.
 
 ## Features
@@ -37,6 +51,19 @@ An Android application for downloading videos and media from the web with a buil
 | Security | Encrypted SharedPreferences, FileProvider |
 | Min SDK | 24 (Android 7.0) |
 | Target SDK | 36 (Android 16) |
+
+## Installation
+
+### Latest Release — v1.1.0
+
+| File | Size | SHA-256 |
+|------|------|---------|
+| [app-release.apk](https://github.com/abir2afridi/NexLoad/releases/latest/download/app-release.apk) | 15.13 MB | `CE23E9DBE52D6DE27076B0472C92A6ED289059DFDB51E7AD6D99A128D069694F` |
+| [app-release.aab](https://github.com/abir2afridi/NexLoad/releases/latest/download/app-release.aab) | 15.40 MB | `D0C014B13541EECC143D482F399E37D5754C0429923CDB39AC272B27673FE0E9` |
+
+### Requirements
+- Android 7.0 (API 24) or higher
+- ARM64 / ARM / x86_64
 
 ## Building
 
