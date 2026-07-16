@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.database.AppDatabase
 import com.example.data.database.BookmarkEntity
 import com.example.data.database.DownloadEntity
+import com.example.data.database.HistoryEntity
 import com.example.data.download.DownloadEngine
 import com.example.data.download.MediaUtils
 import androidx.work.PeriodicWorkRequestBuilder
@@ -53,13 +54,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val bookmarks: StateFlow<List<BookmarkEntity>> = dao.getAllBookmarks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Browsing History flow (from DB, excludes incognito)
+    val browsingHistory: StateFlow<List<HistoryEntity>> = dao.getAllHistory()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Detected media on current web page
     private val _detectedMediaList = MutableStateFlow<List<DetectedMedia>>(emptyList())
     val detectedMediaList: StateFlow<List<DetectedMedia>> = _detectedMediaList.asStateFlow()
 
-    // Tab gallery
-    val tabs = MutableStateFlow(listOf(TabData()))
-    val activeTabId = MutableStateFlow<String?>(null)
+    // Tab gallery — starts with one default tab and sets activeTabId immediately
+    private val _initialTab = TabData()
+    val tabs = MutableStateFlow(listOf(_initialTab))
+    val activeTabId = MutableStateFlow<String?>(_initialTab.id)
 
     // Browser state (synced from active tab for backward compat)
     val currentWebUrl = MutableStateFlow("https://google.com")
@@ -217,6 +223,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         isIncognito.value = newState
         tabs.value = tabs.value.map {
             if (it.id == activeId) it.copy(isIncognito = newState) else it
+        }
+    }
+
+    /**
+     * Browsing History Management
+     * Only saves history for non-incognito tabs
+     */
+    fun addHistoryEntry(url: String, title: String) {
+        // Never save incognito pages
+        if (isIncognito.value) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                dao.insertHistory(HistoryEntity(url = url, title = title))
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to insert history", e)
+            }
+        }
+    }
+
+    fun deleteHistoryEntry(entry: HistoryEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            dao.deleteHistory(entry)
+        }
+    }
+
+    fun clearAllHistory() {
+        viewModelScope.launch(Dispatchers.IO) {
+            dao.clearAllHistory()
         }
     }
 

@@ -29,6 +29,7 @@ interface DownloadDao {
     @Query("DELETE FROM downloads WHERE id = :id")
     suspend fun deleteDownloadById(id: Int)
 
+    // Bookmarks
     @Query("SELECT * FROM bookmarks ORDER BY timestamp DESC")
     fun getAllBookmarks(): Flow<List<BookmarkEntity>>
 
@@ -37,4 +38,17 @@ interface DownloadDao {
 
     @Delete
     suspend fun deleteBookmark(bookmark: BookmarkEntity)
+
+    // History (persistent, excludes incognito)
+    @Query("SELECT * FROM history ORDER BY timestamp DESC LIMIT 500")
+    fun getAllHistory(): Flow<List<HistoryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHistory(history: HistoryEntity): Long
+
+    @Delete
+    suspend fun deleteHistory(history: HistoryEntity)
+
+    @Query("DELETE FROM history")
+    suspend fun clearAllHistory()
 }

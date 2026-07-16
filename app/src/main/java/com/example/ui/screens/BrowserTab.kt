@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -36,8 +38,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.ui.viewmodel.MainViewModel
+import java.text.SimpleDateFormat
+import java.util.*
 
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +58,7 @@ fun BrowserTab(viewModel: MainViewModel) {
     val isForceDarkWeb by viewModel.isForceDarkWeb.collectAsState()
     val detectedMedia by viewModel.detectedMediaList.collectAsState()
     val bookmarks by viewModel.bookmarks.collectAsState()
+    val browsingHistory by viewModel.browsingHistory.collectAsState()
     val tabs by viewModel.tabs.collectAsState()
     val activeTabId by viewModel.activeTabId.collectAsState()
 
@@ -64,10 +70,10 @@ fun BrowserTab(viewModel: MainViewModel) {
     var showHistorySheet by remember { mutableStateOf(false) }
     var showTabGallerySheet by remember { mutableStateOf(false) }
 
-    // WebView instances per tab
+    // WebView instances per tab (one WebView per tab ID)
     val webViewInstances = remember { mutableMapOf<String, WebView>() }
 
-    // Clean up destroyed tabs
+    // Clean up destroyed tabs' WebViews
     LaunchedEffect(tabs) {
         val activeIds = tabs.map { it.id }.toSet()
         webViewInstances.keys
@@ -83,6 +89,11 @@ fun BrowserTab(viewModel: MainViewModel) {
         urlInput = currentUrl
     }
 
+    // Update webViewInstance reference when active tab changes
+    LaunchedEffect(activeTabId) {
+        webViewInstance = activeTabId?.let { webViewInstances[it] }
+    }
+
     Scaffold(
         topBar = {
             Surface(
@@ -95,6 +106,30 @@ fun BrowserTab(viewModel: MainViewModel) {
                         .statusBarsPadding()
                         .padding(bottom = 6.dp)
                 ) {
+                    // Incognito mode indicator banner
+                    if (isIncognito) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF2D1B69).copy(alpha = 0.8f))
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.VisibilityOff,
+                                contentDescription = null,
+                                tint = Color(0xFFBB86FC),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Incognito Mode — History won't be saved",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color(0xFFBB86FC)
+                            )
+                        }
+                    }
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -107,14 +142,14 @@ fun BrowserTab(viewModel: MainViewModel) {
                             enabled = webViewInstance?.canGoBack() == true,
                             modifier = Modifier.size(34.dp).testTag("browser_back")
                         ) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back", modifier = Modifier.size(20.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.size(20.dp))
                         }
                         IconButton(
                             onClick = { webViewInstance?.goForward() },
                             enabled = webViewInstance?.canGoForward() == true,
                             modifier = Modifier.size(34.dp).testTag("browser_forward")
                         ) {
-                            Icon(Icons.Default.ArrowForward, contentDescription = "Forward", modifier = Modifier.size(20.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Forward", modifier = Modifier.size(20.dp))
                         }
                         IconButton(
                             onClick = { webViewInstance?.reload() },
@@ -138,20 +173,26 @@ fun BrowserTab(viewModel: MainViewModel) {
                                 .height(48.dp)
                                 .padding(horizontal = 4.dp)
                                 .testTag("browser_address_bar"),
-                            placeholder = { Text("Search...", style = MaterialTheme.typography.bodyMedium) },
+                            placeholder = { Text("Search or enter URL...", style = MaterialTheme.typography.bodyMedium) },
                             singleLine = true,
                             colors = TextFieldDefaults.colors(
-                                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                                focusedContainerColor = if (isIncognito) Color(0xFF2D2D3A) else MaterialTheme.colorScheme.surface,
+                                unfocusedContainerColor = if (isIncognito) Color(0xFF2D2D3A) else MaterialTheme.colorScheme.surface,
                                 focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedTextColor = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = if (isIncognito) Color.White else MaterialTheme.colorScheme.onSurface,
                             ),
                             shape = RoundedCornerShape(24.dp),
                             leadingIcon = {
                                 Icon(
-                                    imageVector = if (isHttpsOnly) Icons.Default.Lock else Icons.Default.Language,
+                                    imageVector = if (isIncognito) Icons.Filled.VisibilityOff
+                                                  else if (isHttpsOnly) Icons.Default.Lock
+                                                  else Icons.Default.Language,
                                     contentDescription = null,
-                                    tint = if (isHttpsOnly) MaterialTheme.colorScheme.primary else Color.Gray,
+                                    tint = if (isIncognito) Color(0xFFBB86FC)
+                                           else if (isHttpsOnly) MaterialTheme.colorScheme.primary
+                                           else Color.Gray,
                                     modifier = Modifier.size(16.dp)
                                 )
                             },
@@ -174,17 +215,44 @@ fun BrowserTab(viewModel: MainViewModel) {
                             )
                         )
 
-                        // Tab Gallery button
-                        IconButton(
-                            onClick = { showTabGallerySheet = true },
-                            modifier = Modifier.size(34.dp).testTag("tab_gallery")
+                        // Tab Gallery button with count badge
+                        Box(
+                            modifier = Modifier.size(34.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Tab,
-                                contentDescription = "Tabs",
-                                tint = if (tabs.size > 1) MaterialTheme.colorScheme.primary else Color.Gray,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            IconButton(
+                                onClick = { showTabGallerySheet = true },
+                                modifier = Modifier.size(34.dp).testTag("tab_gallery")
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Tab,
+                                        contentDescription = "Tabs",
+                                        tint = if (isIncognito) Color(0xFFBB86FC) else MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            // Tab count badge
+                            if (tabs.isNotEmpty()) {
+                                Surface(
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 2.dp, y = (-2).dp),
+                                    shape = CircleShape,
+                                    color = if (isIncognito) Color(0xFF7B2FBE) else MaterialTheme.colorScheme.primary
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = if (tabs.size > 9) "9+" else tabs.size.toString(),
+                                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 7.sp),
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
                         }
 
                         // 3-dot overflow menu
@@ -236,30 +304,31 @@ fun BrowserTab(viewModel: MainViewModel) {
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(if (isIncognito) "Disable Incognito" else "Enable Incognito") },
+                                    text = { Text(if (isIncognito) "Exit Incognito" else "Go Incognito") },
                                     leadingIcon = {
                                         Icon(
                                             imageVector = if (isIncognito) Icons.Filled.VisibilityOff else Icons.Outlined.Visibility,
                                             contentDescription = null,
-                                            tint = if (isIncognito) MaterialTheme.colorScheme.primary else Color.Gray
+                                            tint = if (isIncognito) Color(0xFFBB86FC) else Color.Gray
                                         )
                                     },
                                     onClick = {
                                         val newState = !isIncognito
                                         viewModel.toggleActiveTabIncognito()
                                         if (newState) {
+                                            // Enable incognito: clear cookies, cache, history for this WebView
                                             CookieManager.getInstance().removeAllCookies(null)
                                             webViewInstance?.clearCache(true)
                                             webViewInstance?.clearHistory()
-                                            Toast.makeText(context, "Incognito Mode Activated", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "🕵️ Incognito Mode On", Toast.LENGTH_SHORT).show()
                                         } else {
-                                            Toast.makeText(context, "Standard Mode Activated", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "Standard Mode On", Toast.LENGTH_SHORT).show()
                                         }
                                         showOverflow = false
                                     }
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Bookmarks List") },
+                                    text = { Text("Bookmarks") },
                                     leadingIcon = {
                                         Icon(Icons.Default.Bookmarks, contentDescription = null, tint = Color.Gray)
                                     },
@@ -273,8 +342,37 @@ fun BrowserTab(viewModel: MainViewModel) {
                                     leadingIcon = {
                                         Icon(Icons.Default.History, contentDescription = null, tint = Color.Gray)
                                     },
+                                    enabled = !isIncognito, // History disabled in incognito
                                     onClick = {
                                         showHistorySheet = true
+                                        showOverflow = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Share Page") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Share, contentDescription = null, tint = Color.Gray)
+                                    },
+                                    onClick = {
+                                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/plain"
+                                            putExtra(Intent.EXTRA_TEXT, currentUrl)
+                                        }
+                                        context.startActivity(Intent.createChooser(shareIntent, "Share URL"))
+                                        showOverflow = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Open in Browser") },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.OpenInBrowser, contentDescription = null, tint = Color.Gray)
+                                    },
+                                    onClick = {
+                                        try {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(currentUrl)))
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Cannot open browser", Toast.LENGTH_SHORT).show()
+                                        }
                                         showOverflow = false
                                     }
                                 )
@@ -290,7 +388,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                                 .fillMaxWidth()
                                 .height(2.dp)
                                 .padding(top = 2.dp),
-                            color = MaterialTheme.colorScheme.primary
+                            color = if (isIncognito) Color(0xFFBB86FC) else MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -328,6 +426,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
             // Multi-tab WebView container
+            // Each tab has its own WebView instance stored in webViewInstances map
             AndroidView(
                 factory = { ctx ->
                     FrameLayout(ctx).apply {
@@ -341,131 +440,53 @@ fun BrowserTab(viewModel: MainViewModel) {
                     val activeId = activeTabId ?: return@AndroidView
                     container.removeAllViews()
 
+                    val tabData = tabs.find { it.id == activeId }
+                    val tabIsIncognito = tabData?.isIncognito ?: false
+
                     val webView = webViewInstances.getOrPut(activeId) {
-                        WebView(container.context).apply {
-                            settings.javaScriptEnabled = true
-                            settings.domStorageEnabled = true
-                            settings.databaseEnabled = true
-                            settings.useWideViewPort = true
-                            settings.loadWithOverviewMode = true
-
-                            if (isForceDarkWeb && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                                settings.forceDark = WebSettings.FORCE_DARK_ON
-                            } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                                settings.forceDark = WebSettings.FORCE_DARK_OFF
-                            }
-
-                            addJavascriptInterface(object {
-                                @JavascriptInterface
-                                fun postMedia(url: String, title: String) {
-                                    viewModel.addDetectedMedia(url, title)
+                        createWebView(
+                            context = container.context,
+                            isIncognito = tabIsIncognito,
+                            isTrackerBlocking = isTrackerBlocking,
+                            isForceDarkWeb = isForceDarkWeb,
+                            onProgressChanged = { progressVal = it },
+                            onPageStarted = { url ->
+                                viewModel.clearDetectedMedia()
+                                if (url != null) {
+                                    viewModel.updateActiveTabUrl(url)
                                 }
-                            }, "MediaScanner")
-
-                            webViewClient = object : WebViewClient() {
-                                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
-                                    super.onPageStarted(view, url, favicon)
-                                    viewModel.clearDetectedMedia()
-                                    if (url != null) {
-                                        viewModel.updateActiveTabUrl(url)
+                            },
+                            onPageFinished = { view, url ->
+                                val title = view?.title ?: ""
+                                viewModel.updateActiveTabTitle(title)
+                                // Save history only for non-incognito tabs
+                                if (!tabIsIncognito && !url.isNullOrBlank()) {
+                                    viewModel.addHistoryEntry(url, title.ifBlank { url })
+                                }
+                            },
+                            onMediaDetected = { mediaUrl, mediaTitle ->
+                                viewModel.addDetectedMedia(mediaUrl, mediaTitle)
+                            },
+                            onShouldIntercept = { urlStr ->
+                                var shouldBlock = false
+                                if (isTrackerBlocking) {
+                                    val blocked = listOf(
+                                        "doubleclick.net", "ads.", "analytics", "telemetry",
+                                        "google-analytics", "facebook.com/tr", "adnxs.com", "taboola"
+                                    )
+                                    if (blocked.any { urlStr.contains(it, ignoreCase = true) }) {
+                                        shouldBlock = true
                                     }
                                 }
-
-                                override fun onPageFinished(view: WebView?, url: String?) {
-                                    super.onPageFinished(view, url)
-                                    view?.let { viewModel.updateActiveTabTitle(it.title ?: "") }
-                                    view?.evaluateJavascript("""
-                                        (function() {
-                                            var style = document.createElement('style');
-                                            style.innerHTML = 'body { padding-bottom: 120px !important; }';
-                                            document.head.appendChild(style);
-                                            
-                                            function scan() {
-                                                var urls = [];
-                                                var videos = document.getElementsByTagName('video');
-                                                for (var i = 0; i < videos.length; i++) {
-                                                    var src = videos[i].src || videos[i].getAttribute('data-src') || videos[i].getAttribute('data-url') || '';
-                                                    if (src && !src.startsWith('blob:') && !src.startsWith('data:')) urls.push({url: src, title: document.title || 'Video'});
-                                                    var sources = videos[i].getElementsByTagName('source');
-                                                    for (var j = 0; j < sources.length; j++) {
-                                                        var s = sources[j].src || sources[j].getAttribute('data-src') || '';
-                                                        if (s && !s.startsWith('blob:') && !s.startsWith('data:')) urls.push({url: s, title: document.title || 'Video'});
-                                                    }
-                                                }
-                                                var metas = document.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player"]');
-                                                for (var i = 0; i < metas.length; i++) {
-                                                    var c = metas[i].content;
-                                                    if (c && c.indexOf('http') === 0) urls.push({url: c, title: document.title || 'Video'});
-                                                }
-                                                var iframes = document.querySelectorAll('iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="tiktok"], iframe[src*="instagram"]');
-                                                for (var i = 0; i < iframes.length; i++) {
-                                                    var s = iframes[i].src;
-                                                    if (s) urls.push({url: s, title: document.title || 'Embed'});
-                                                }
-                                                var links = document.getElementsByTagName('a');
-                                                for (var i = 0; i < links.length; i++) {
-                                                    var href = links[i].href;
-                                                    if (href && (href.indexOf('.mp4') !== -1 || href.indexOf('.mp3') !== -1 || href.indexOf('.m4a') !== -1 || href.indexOf('.webm') !== -1 || href.indexOf('.mov') !== -1 || href.indexOf('.avi') !== -1) && href.indexOf('blob:') !== 0) {
-                                                        urls.push({url: href, title: links[i].innerText || document.title || 'Media File'});
-                                                    }
-                                                }
-                                                var imgs = document.querySelectorAll('img[src*="media"], img[src*="cdn"], img[src*="video"]');
-                                                for (var i = 0; i < imgs.length; i++) {
-                                                    var s = imgs[i].src;
-                                                    if (s && (s.indexOf('.jpg') !== -1 || s.indexOf('.png') || s.indexOf('.webp') !== -1)) urls.push({url: s, title: document.title || 'Image'});
-                                                }
-                                                var embeds = document.querySelectorAll('[data-media-url], [data-video-url], [data-video-src], [data-mp4]');
-                                                for (var i = 0; i < embeds.length; i++) {
-                                                    var attr = embeds[i].getAttribute('data-media-url') || embeds[i].getAttribute('data-video-url') || embeds[i].getAttribute('data-video-src') || embeds[i].getAttribute('data-mp4') || '';
-                                                    if (attr && attr.indexOf('http') === 0) urls.push({url: attr, title: document.title || 'Media'});
-                                                }
-                                                var seen = {};
-                                                for (var i = 0; i < urls.length; i++) {
-                                                    var key = urls[i].url;
-                                                    if (!seen[key]) { seen[key] = true; window.MediaScanner.postMedia(urls[i].url, urls[i].title); }
-                                                }
-                                            }
-                                            scan();
-                                            setTimeout(function() { scan(); }, 1500);
-                                            setTimeout(function() { scan(); }, 4000);
-                                        })();
-                                    """.trimIndent(), null)
-                                }
-
-                                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                                    val urlStr = request?.url?.toString() ?: ""
-                                    if (isTrackerBlocking) {
-                                        val blockedKeywords = listOf(
-                                            "doubleclick.net", "ads.", "analytics", "telemetry",
-                                            "google-analytics", "facebook.com/tr", "adnxs.com", "taboola"
-                                        )
-                                        if (blockedKeywords.any { urlStr.contains(it, ignoreCase = true) }) {
-                                            return WebResourceResponse("text/plain", "UTF-8", null)
-                                        }
-                                    }
-                                    if (urlStr.contains(".mp4") || urlStr.contains(".m3u8") || urlStr.contains(".ts?") || 
-                                        urlStr.contains(".webm") || urlStr.contains(".mov?") || urlStr.contains(".avi?")) {
-                                        val title = request?.requestHeaders?.get("Referer")?.let { 
-                                            it.substringAfterLast("/").substringBefore("?").take(30) 
-                                        } ?: "Stream"
-                                        viewModel.addDetectedMedia(urlStr, title)
-                                    }
-                                    return super.shouldInterceptRequest(view, request)
-                                }
+                                shouldBlock
                             }
-
-                            webChromeClient = object : WebChromeClient() {
-                                override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                                    super.onProgressChanged(view, newProgress)
-                                    progressVal = newProgress
-                                }
-                            }
-
-                            val tabData = tabs.find { it.id == activeId }
-                            loadUrl(tabData?.url ?: currentUrl)
-                            webViewInstance = this
+                        ).also { wv ->
+                            wv.loadUrl(tabData?.url ?: "https://google.com")
                         }
                     }
+
+                    // Update webViewInstance reference
+                    webViewInstance = webView
 
                     container.addView(webView, FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
@@ -475,7 +496,7 @@ fun BrowserTab(viewModel: MainViewModel) {
             )
         }
 
-        // BOOKMARKS SHEET
+        // ===================== BOOKMARKS SHEET =====================
         if (showBookmarksSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showBookmarksSheet = false },
@@ -486,12 +507,19 @@ fun BrowserTab(viewModel: MainViewModel) {
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    Text(
-                        text = "Your Bookmarks",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Bookmarks",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Icon(Icons.Default.Bookmarks, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                     
                     if (bookmarks.isEmpty()) {
                         Text(
@@ -501,7 +529,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                             modifier = Modifier.padding(vertical = 24.dp)
                         )
                     } else {
-                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
+                        LazyColumn(modifier = Modifier.heightIn(max = 350.dp)) {
                             items(bookmarks) { b ->
                                 Row(
                                     modifier = Modifier
@@ -519,7 +547,14 @@ fun BrowserTab(viewModel: MainViewModel) {
                                         Text(b.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         Text(b.url, style = MaterialTheme.typography.bodySmall, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
+                                    IconButton(
+                                        onClick = { viewModel.toggleBookmark(b.url, b.title) },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.DeleteOutline, contentDescription = "Remove", modifier = Modifier.size(16.dp), tint = Color.Gray)
+                                    }
                                 }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                             }
                         }
                     }
@@ -528,7 +563,7 @@ fun BrowserTab(viewModel: MainViewModel) {
             }
         }
 
-        // HISTORY SHEET
+        // ===================== HISTORY SHEET =====================
         if (showHistorySheet) {
             ModalBottomSheet(
                 onDismissRequest = { showHistorySheet = false },
@@ -539,37 +574,59 @@ fun BrowserTab(viewModel: MainViewModel) {
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    Text(
-                        text = "Browsing History",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    val historyList = remember(webViewInstance) {
-                        val wv = webViewInstance
-                        if (wv != null) {
-                            val bfl = wv.copyBackForwardList()
-                            val items = mutableListOf<android.webkit.WebHistoryItem>()
-                            for (i in 0 until bfl.size) {
-                                bfl.getItemAtIndex(i)?.let { items.add(it) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Browsing History",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (browsingHistory.isNotEmpty()) {
+                            TextButton(onClick = { viewModel.clearAllHistory() }) {
+                                Icon(Icons.Default.DeleteSweep, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Clear All", style = MaterialTheme.typography.labelMedium)
                             }
-                            items
-                        } else {
-                            emptyList()
                         }
                     }
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    if (historyList.isEmpty()) {
-                        Text(
-                            text = "No browsing history.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.Gray,
-                            modifier = Modifier.padding(vertical = 24.dp)
-                        )
+                    if (browsingHistory.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.History,
+                                    contentDescription = null,
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "No browsing history",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.Gray
+                                )
+                                Text(
+                                    text = "Incognito sessions are never saved",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.Gray.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
                     } else {
-                        LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                            items(historyList) { item ->
+                        LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                            items(browsingHistory) { item ->
+                                val dateStr = remember(item.timestamp) {
+                                    SimpleDateFormat("MMM dd, hh:mm a", Locale.getDefault()).format(Date(item.timestamp))
+                                }
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -577,27 +634,42 @@ fun BrowserTab(viewModel: MainViewModel) {
                                             webViewInstance?.loadUrl(item.url)
                                             showHistorySheet = false
                                         }
-                                        .padding(vertical = 12.dp),
+                                        .padding(vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                    Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
-                                            item.title.ifEmpty { "Untitled" },
-                                            style = MaterialTheme.typography.bodyLarge,
+                                            item.title.ifBlank { item.url },
+                                            style = MaterialTheme.typography.bodyMedium,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
-                                        Text(
-                                            item.url,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = Color.Gray,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                item.url,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color.Gray,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Text(
+                                                dateStr,
+                                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                                color = Color.Gray.copy(alpha = 0.6f)
+                                            )
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = { viewModel.deleteHistoryEntry(item) },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Remove", modifier = Modifier.size(14.dp), tint = Color.Gray)
                                     }
                                 }
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
                             }
                         }
                     }
@@ -606,7 +678,7 @@ fun BrowserTab(viewModel: MainViewModel) {
             }
         }
 
-        // TAB GALLERY SHEET
+        // ===================== TAB GALLERY SHEET =====================
         if (showTabGallerySheet) {
             ModalBottomSheet(
                 onDismissRequest = { showTabGallerySheet = false },
@@ -615,181 +687,148 @@ fun BrowserTab(viewModel: MainViewModel) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 16.dp)
                 ) {
-                    Text(
-                        text = "Tab Gallery",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    val normalTabs = tabs.filter { !it.isIncognito }
-                    val privateTabs = tabs.filter { it.isIncognito }
-
-                    if (normalTabs.isNotEmpty()) {
-                        Text(
-                            text = "Normal",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                        )
-                        LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
-                            items(normalTabs) { tab ->
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 2.dp)
-                                        .clickable {
-                                            viewModel.switchTab(tab.id)
-                                            showTabGallerySheet = false
-                                        },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (tab.id == activeTabId) MaterialTheme.colorScheme.primaryContainer
-                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Default.Language, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                tab.title.ifEmpty { "New Tab" },
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Text(
-                                                tab.url,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = Color.Gray,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                        if (tabs.size > 1) {
-                                            IconButton(
-                                                onClick = { viewModel.closeTab(tab.id) },
-                                                modifier = Modifier.size(28.dp)
-                                            ) {
-                                                Icon(Icons.Default.Close, contentDescription = "Close tab", modifier = Modifier.size(16.dp))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (privateTabs.isNotEmpty()) {
-                        Text(
-                            text = "Private",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.tertiary,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
-                        )
-                        LazyColumn(modifier = Modifier.heightIn(max = 180.dp)) {
-                            items(privateTabs) { tab ->
-                                Surface(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 2.dp)
-                                        .clickable {
-                                            viewModel.switchTab(tab.id)
-                                            showTabGallerySheet = false
-                                        },
-                                    shape = RoundedCornerShape(12.dp),
-                                    color = if (tab.id == activeTabId) MaterialTheme.colorScheme.tertiaryContainer
-                                            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Filled.VisibilityOff, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                tab.title.ifEmpty { "New Tab" },
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Text(
-                                                "Private Browsing",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = Color.Gray,
-                                                maxLines = 1
-                                            )
-                                        }
-                                        if (tabs.size > 1) {
-                                            IconButton(
-                                                onClick = { viewModel.closeTab(tab.id) },
-                                                modifier = Modifier.size(28.dp)
-                                            ) {
-                                                Icon(Icons.Default.Close, contentDescription = "Close tab", modifier = Modifier.size(16.dp))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
+                    // Header
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        OutlinedButton(
+                        Text(
+                            text = "Tab Gallery",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "${tabs.size} tab${if (tabs.size != 1) "s" else ""}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    // New Tab buttons row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        // New Normal Tab
+                        Button(
                             onClick = {
                                 viewModel.addTab(isIncognito = false)
                                 showTabGallerySheet = false
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("New Tab")
                         }
-                        OutlinedButton(
+                        // New Private Tab
+                        Button(
                             onClick = {
                                 viewModel.addTab(isIncognito = true)
                                 showTabGallerySheet = false
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF7B2FBE),
+                                contentColor = Color.White
+                            )
                         ) {
                             Icon(Icons.Filled.VisibilityOff, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Private")
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
+
+                    val normalTabs = tabs.filter { !it.isIncognito }
+                    val privateTabs = tabs.filter { it.isIncognito }
+
+                    // Normal Tabs Section
+                    if (normalTabs.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.padding(top = 12.dp, bottom = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Language, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Normal (${normalTabs.size})",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
+                            items(normalTabs, key = { it.id }) { tab ->
+                                TabItem(
+                                    tab = tab,
+                                    isActive = tab.id == activeTabId,
+                                    canClose = tabs.size > 1,
+                                    onSwitch = {
+                                        viewModel.switchTab(tab.id)
+                                        showTabGallerySheet = false
+                                    },
+                                    onClose = { viewModel.closeTab(tab.id) }
+                                )
+                            }
+                        }
+                    }
+
+                    // Private Tabs Section
+                    if (privateTabs.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.padding(top = 14.dp, bottom = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Filled.VisibilityOff, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFFBB86FC))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Private (${privateTabs.size})",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = Color(0xFFBB86FC),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
+                            items(privateTabs, key = { it.id }) { tab ->
+                                TabItem(
+                                    tab = tab,
+                                    isActive = tab.id == activeTabId,
+                                    canClose = tabs.size > 1,
+                                    isPrivate = true,
+                                    onSwitch = {
+                                        viewModel.switchTab(tab.id)
+                                        showTabGallerySheet = false
+                                    },
+                                    onClose = { viewModel.closeTab(tab.id) }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }
 
-        // DETECTED MEDIA BOTTOM SHEET
+        // ===================== DETECTED MEDIA BOTTOM SHEET =====================
         if (showMediaSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showMediaSheet = false },
-                modifier = Modifier.testTag("media_bottom_sheet"),
-                dragHandle = { BottomSheetDefaults.DragHandle() },
-                containerColor = MaterialTheme.colorScheme.surface,
-                tonalElevation = 8.dp
+                modifier = Modifier.testTag("media_bottom_sheet")
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                        .padding(bottom = 32.dp)
+                        .padding(16.dp)
                 ) {
-                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -979,6 +1018,218 @@ fun BrowserTab(viewModel: MainViewModel) {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// ===================== TAB ITEM COMPOSABLE =====================
+@Composable
+private fun TabItem(
+    tab: com.example.ui.viewmodel.TabData,
+    isActive: Boolean,
+    canClose: Boolean,
+    isPrivate: Boolean = false,
+    onSwitch: () -> Unit,
+    onClose: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .clickable { onSwitch() },
+        shape = RoundedCornerShape(12.dp),
+        color = when {
+            isActive && isPrivate -> Color(0xFF7B2FBE).copy(alpha = 0.25f)
+            isActive -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        },
+        border = if (isActive) BorderStroke(
+            1.5.dp,
+            if (isPrivate) Color(0xFFBB86FC) else MaterialTheme.colorScheme.primary
+        ) else null
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = if (isPrivate) Icons.Filled.VisibilityOff else Icons.Default.Language,
+                contentDescription = null,
+                tint = if (isPrivate) Color(0xFFBB86FC) else if (isActive) MaterialTheme.colorScheme.primary else Color.Gray,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    tab.title.ifBlank { if (isPrivate) "Private Tab" else "New Tab" },
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    if (isPrivate) "Private · ${tab.url.take(30)}" else tab.url.take(30),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (isActive) {
+                Surface(
+                    shape = CircleShape,
+                    color = if (isPrivate) Color(0xFFBB86FC) else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(8.dp)
+                ) {}
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            if (canClose) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(Icons.Default.Close, contentDescription = "Close tab", modifier = Modifier.size(16.dp), tint = Color.Gray)
+                }
+            }
+        }
+    }
+}
+
+// ===================== WEBVIEW FACTORY =====================
+@SuppressLint("SetJavaScriptEnabled")
+private fun createWebView(
+    context: Context,
+    isIncognito: Boolean,
+    isTrackerBlocking: Boolean,
+    isForceDarkWeb: Boolean,
+    onProgressChanged: (Int) -> Unit,
+    onPageStarted: (String?) -> Unit,
+    onPageFinished: (WebView?, String?) -> Unit,
+    onMediaDetected: (String, String) -> Unit,
+    onShouldIntercept: (String) -> Boolean
+): WebView {
+    return WebView(context).apply {
+        settings.javaScriptEnabled = true
+        settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
+        settings.setSupportZoom(true)
+        settings.builtInZoomControls = true
+        settings.displayZoomControls = false
+        settings.allowFileAccess = !isIncognito
+        settings.saveFormData = !isIncognito
+        settings.savePassword = false
+
+        // Incognito: disable cache, no persistent storage
+        if (isIncognito) {
+            settings.cacheMode = WebSettings.LOAD_NO_CACHE
+            clearCache(true)
+            clearHistory()
+            clearFormData()
+            CookieManager.getInstance().setAcceptCookie(false)
+        } else {
+            settings.cacheMode = WebSettings.LOAD_DEFAULT
+            CookieManager.getInstance().setAcceptCookie(true)
+        }
+
+        // Force dark mode
+        if (isForceDarkWeb && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            settings.forceDark = WebSettings.FORCE_DARK_ON
+        } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            settings.forceDark = WebSettings.FORCE_DARK_OFF
+        }
+
+        addJavascriptInterface(object {
+            @JavascriptInterface
+            fun postMedia(url: String, title: String) {
+                onMediaDetected(url, title)
+            }
+        }, "MediaScanner")
+
+        webViewClient = object : WebViewClient() {
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                onPageStarted(url)
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                onPageFinished(view, url)
+                view?.evaluateJavascript("""
+                    (function() {
+                        var style = document.createElement('style');
+                        style.innerHTML = 'body { padding-bottom: 120px !important; }';
+                        document.head.appendChild(style);
+                        
+                        function scan() {
+                            var urls = [];
+                            var videos = document.getElementsByTagName('video');
+                            for (var i = 0; i < videos.length; i++) {
+                                var src = videos[i].src || videos[i].getAttribute('data-src') || videos[i].getAttribute('data-url') || '';
+                                if (src && !src.startsWith('blob:') && !src.startsWith('data:')) urls.push({url: src, title: document.title || 'Video'});
+                                var sources = videos[i].getElementsByTagName('source');
+                                for (var j = 0; j < sources.length; j++) {
+                                    var s = sources[j].src || sources[j].getAttribute('data-src') || '';
+                                    if (s && !s.startsWith('blob:') && !s.startsWith('data:')) urls.push({url: s, title: document.title || 'Video'});
+                                }
+                            }
+                            var metas = document.querySelectorAll('meta[property="og:video"], meta[property="og:video:url"], meta[property="og:video:secure_url"], meta[name="twitter:player"]');
+                            for (var i = 0; i < metas.length; i++) {
+                                var c = metas[i].content;
+                                if (c && c.indexOf('http') === 0) urls.push({url: c, title: document.title || 'Video'});
+                            }
+                            var iframes = document.querySelectorAll('iframe[src*="youtube"], iframe[src*="vimeo"], iframe[src*="tiktok"], iframe[src*="instagram"]');
+                            for (var i = 0; i < iframes.length; i++) {
+                                var s = iframes[i].src;
+                                if (s) urls.push({url: s, title: document.title || 'Embed'});
+                            }
+                            var links = document.getElementsByTagName('a');
+                            for (var i = 0; i < links.length; i++) {
+                                var href = links[i].href;
+                                if (href && (href.indexOf('.mp4') !== -1 || href.indexOf('.mp3') !== -1 || href.indexOf('.m4a') !== -1 || href.indexOf('.webm') !== -1 || href.indexOf('.mov') !== -1 || href.indexOf('.avi') !== -1) && href.indexOf('blob:') !== 0) {
+                                    urls.push({url: href, title: links[i].innerText || document.title || 'Media File'});
+                                }
+                            }
+                            var embeds = document.querySelectorAll('[data-media-url], [data-video-url], [data-video-src], [data-mp4]');
+                            for (var i = 0; i < embeds.length; i++) {
+                                var attr = embeds[i].getAttribute('data-media-url') || embeds[i].getAttribute('data-video-url') || embeds[i].getAttribute('data-video-src') || embeds[i].getAttribute('data-mp4') || '';
+                                if (attr && attr.indexOf('http') === 0) urls.push({url: attr, title: document.title || 'Media'});
+                            }
+                            var seen = {};
+                            for (var i = 0; i < urls.length; i++) {
+                                var key = urls[i].url;
+                                if (!seen[key]) { seen[key] = true; window.MediaScanner.postMedia(urls[i].url, urls[i].title); }
+                            }
+                        }
+                        scan();
+                        setTimeout(function() { scan(); }, 1500);
+                        setTimeout(function() { scan(); }, 4000);
+                    })();
+                """.trimIndent(), null)
+            }
+
+            override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
+                val urlStr = request?.url?.toString() ?: ""
+                if (onShouldIntercept(urlStr)) {
+                    return WebResourceResponse("text/plain", "UTF-8", null)
+                }
+                if (urlStr.contains(".mp4") || urlStr.contains(".m3u8") || urlStr.contains(".ts?") || 
+                    urlStr.contains(".webm") || urlStr.contains(".mov?") || urlStr.contains(".avi?")) {
+                    val title = request?.requestHeaders?.get("Referer")?.let { 
+                        it.substringAfterLast("/").substringBefore("?").take(30) 
+                    } ?: "Stream"
+                    onMediaDetected(urlStr, title)
+                }
+                return super.shouldInterceptRequest(view, request)
+            }
+        }
+
+        webChromeClient = object : WebChromeClient() {
+            override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                super.onProgressChanged(view, newProgress)
+                onProgressChanged(newProgress)
             }
         }
     }

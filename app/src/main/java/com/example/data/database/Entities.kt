@@ -34,3 +34,11 @@ data class BookmarkEntity(
     val isFavorite: Boolean = false,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "history")
+data class HistoryEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val url: String,
+    val title: String,
+    val timestamp: Long = System.currentTimeMillis()
+)
