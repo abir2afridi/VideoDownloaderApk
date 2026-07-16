@@ -17,10 +17,8 @@ v1.2.0 is a small but impactful quality-of-life release that fixes the most comm
 
 | File | Size | SHA-256 |
 |------|------|---------|
-| `app-release.apk` | TBD | TBD |
-| `app-release.aab` | TBD | TBD |
-
-*Assets will be available after the CI build completes.*
+| `app-release.apk` | 15.13 MB | `A00730452B65196237FACE62C787F6249167EDD5FD7E055094E05FFE262532F6` |
+| `app-release.aab` | 14.69 MB | `8478C45205F06C5A12E26076100B2F21E2B01F9EE4FA2926CB54B528CB633ECA` |
 
 ### Requirements
 
