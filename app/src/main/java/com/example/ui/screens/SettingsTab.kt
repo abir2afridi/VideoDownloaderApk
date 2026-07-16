@@ -301,7 +301,7 @@ fun SettingsTab(
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             // Section 2: Engine Preferences
             SettingsSectionHeader(title = "Download Engine")
@@ -363,7 +363,7 @@ fun SettingsTab(
                 )
             }
 
-            Divider()
+            HorizontalDivider()
 
             // Section 3: Browser Privacy
             SettingsSectionHeader(title = "Browser Security & Privacy")
@@ -395,7 +395,7 @@ fun SettingsTab(
                 tag = "force_dark_web_switch"
             )
 
-            Divider()
+            HorizontalDivider()
 
             // Section 5: Vault & Security reset
             SettingsSectionHeader(title = "Privacy Vault Security")
@@ -419,7 +419,7 @@ fun SettingsTab(
                 }
             }
 
-            Divider()
+            HorizontalDivider()
 
             // Section 6: About
             SettingsSectionHeader(title = "About")

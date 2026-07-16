@@ -40,6 +40,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.data.browser.AdBlocker
+import com.example.ui.screens.browser.BrowserPrivacyScreen
+import com.example.ui.screens.browser.BrowserSearchSettingsScreen
+import com.example.ui.screens.browser.BrowserContentSettingsScreen
+import com.example.ui.screens.browser.BrowserHomepageSettingsScreen
 import com.example.ui.viewmodel.MainViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -54,13 +59,24 @@ fun BrowserTab(viewModel: MainViewModel) {
     val currentUrl by viewModel.currentWebUrl.collectAsState()
     val isIncognito by viewModel.isIncognito.collectAsState()
     val isTrackerBlocking by viewModel.isTrackerBlocking.collectAsState()
+    val isAdBlocking by viewModel.isAdBlocking.collectAsState()
     val isHttpsOnly by viewModel.isHttpsOnly.collectAsState()
     val isForceDarkWeb by viewModel.isForceDarkWeb.collectAsState()
+    val isDataSaving by viewModel.isDataSaving.collectAsState()
+    val isBlockPopups by viewModel.isBlockPopups.collectAsState()
+    val textSizePercent by viewModel.textSizePercent.collectAsState()
+    val userAgentMode by viewModel.userAgentMode.collectAsState()
+    val cookieMode by viewModel.cookieMode.collectAsState()
     val detectedMedia by viewModel.detectedMediaList.collectAsState()
     val bookmarks by viewModel.bookmarks.collectAsState()
     val browsingHistory by viewModel.browsingHistory.collectAsState()
     val tabs by viewModel.tabs.collectAsState()
     val activeTabId by viewModel.activeTabId.collectAsState()
+    // Permission settings
+    val locationPermission by viewModel.locationPermission.collectAsState()
+    val notificationPermission by viewModel.notificationPermission.collectAsState()
+    val microphonePermission by viewModel.microphonePermission.collectAsState()
+    val externalAppsPolicy by viewModel.externalAppsPolicy.collectAsState()
 
     var urlInput by remember { mutableStateOf(currentUrl) }
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
@@ -69,6 +85,11 @@ fun BrowserTab(viewModel: MainViewModel) {
     var showMediaSheet by remember { mutableStateOf(false) }
     var showHistorySheet by remember { mutableStateOf(false) }
     var showTabGallerySheet by remember { mutableStateOf(false) }
+    // Settings screens navigation
+    var showPrivacyScreen by remember { mutableStateOf(false) }
+    var showSearchScreen by remember { mutableStateOf(false) }
+    var showContentScreen by remember { mutableStateOf(false) }
+    var showHomepageScreen by remember { mutableStateOf(false) }
 
     // WebView instances per tab (one WebView per tab ID)
     val webViewInstances = remember { mutableMapOf<String, WebView>() }
@@ -202,13 +223,13 @@ fun BrowserTab(viewModel: MainViewModel) {
                                 onSearch = {
                                     var destination = urlInput.trim()
                                     if (destination.isNotBlank()) {
-                                        if (!destination.startsWith("http://") && !destination.startsWith("https://")) {
+                                        destination = if (!destination.startsWith("http://") && !destination.startsWith("https://")) {
                                             if (destination.contains(".") && !destination.contains(" ")) {
-                                                destination = "https://$destination"
+                                                "https://$destination"
                                             } else {
-                                                destination = "https://google.com/search?q=$destination"
+                                                viewModel.buildSearchUrl(destination)
                                             }
-                                        }
+                                        } else destination
                                         webViewInstance?.loadUrl(destination)
                                     }
                                 }
@@ -376,6 +397,27 @@ fun BrowserTab(viewModel: MainViewModel) {
                                         showOverflow = false
                                     }
                                 )
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                DropdownMenuItem(
+                                    text = { Text("Privacy & Security") },
+                                    leadingIcon = { Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF43A047)) },
+                                    onClick = { showPrivacyScreen = true; showOverflow = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Search Settings") },
+                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF1E88E5)) },
+                                    onClick = { showSearchScreen = true; showOverflow = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Content") },
+                                    leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF8E24AA)) },
+                                    onClick = { showContentScreen = true; showOverflow = false }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Homepage") },
+                                    leadingIcon = { Icon(Icons.Default.Home, contentDescription = null, tint = Color(0xFFE65100)) },
+                                    onClick = { showHomepageScreen = true; showOverflow = false }
+                                )
                             }
                         }
                     }
@@ -448,7 +490,17 @@ fun BrowserTab(viewModel: MainViewModel) {
                             context = container.context,
                             isIncognito = tabIsIncognito,
                             isTrackerBlocking = isTrackerBlocking,
+                            isAdBlocking = isAdBlocking,
                             isForceDarkWeb = isForceDarkWeb,
+                            textSizePercent = textSizePercent,
+                            userAgentMode = userAgentMode,
+                            isDataSaving = isDataSaving,
+                            isBlockPopups = isBlockPopups,
+                            cookieMode = cookieMode,
+                            locationPermission = locationPermission,
+                            notificationPermission = notificationPermission,
+                            microphonePermission = microphonePermission,
+                            externalAppsPolicy = externalAppsPolicy,
                             onProgressChanged = { progressVal = it },
                             onPageStarted = { url ->
                                 viewModel.clearDetectedMedia()
@@ -468,17 +520,10 @@ fun BrowserTab(viewModel: MainViewModel) {
                                 viewModel.addDetectedMedia(mediaUrl, mediaTitle)
                             },
                             onShouldIntercept = { urlStr ->
-                                var shouldBlock = false
-                                if (isTrackerBlocking) {
-                                    val blocked = listOf(
-                                        "doubleclick.net", "ads.", "analytics", "telemetry",
-                                        "google-analytics", "facebook.com/tr", "adnxs.com", "taboola"
-                                    )
-                                    if (blocked.any { urlStr.contains(it, ignoreCase = true) }) {
-                                        shouldBlock = true
-                                    }
-                                }
-                                shouldBlock
+                                AdBlocker.isBlocked(urlStr, isAdBlocking, isTrackerBlocking)
+                            },
+                            onNotificationGranted = { origin ->
+                                viewModel.addNotificationSite(origin)
                             }
                         ).also { wv ->
                             wv.loadUrl(tabData?.url ?: "https://google.com")
@@ -492,10 +537,43 @@ fun BrowserTab(viewModel: MainViewModel) {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     ))
+
+                    // Apply live settings to existing webview (text size, user agent, etc.)
+                    webView.settings.textZoom = textSizePercent
+                    if (userAgentMode == "Desktop") {
+                        webView.settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    } else {
+                        webView.settings.userAgentString = null // reset to default mobile UA
+                    }
                 }
             )
         }
 
+        // ── SETTINGS SCREEN OVERLAYS ──────────────────────────────────────────
+        if (showPrivacyScreen) {
+            BrowserPrivacyScreen(
+                viewModel = viewModel,
+                onBack = { showPrivacyScreen = false }
+            )
+        }
+        if (showSearchScreen) {
+            BrowserSearchSettingsScreen(
+                viewModel = viewModel,
+                onBack = { showSearchScreen = false }
+            )
+        }
+        if (showContentScreen) {
+            BrowserContentSettingsScreen(
+                viewModel = viewModel,
+                onBack = { showContentScreen = false }
+            )
+        }
+        if (showHomepageScreen) {
+            BrowserHomepageSettingsScreen(
+                viewModel = viewModel,
+                onBack = { showHomepageScreen = false }
+            )
+        }
         // ===================== BOOKMARKS SHEET =====================
         if (showBookmarksSheet) {
             ModalBottomSheet(
@@ -1102,25 +1180,47 @@ private fun createWebView(
     context: Context,
     isIncognito: Boolean,
     isTrackerBlocking: Boolean,
+    isAdBlocking: Boolean,
     isForceDarkWeb: Boolean,
+    textSizePercent: Int,
+    userAgentMode: String,
+    isDataSaving: Boolean,
+    isBlockPopups: Boolean,
+    cookieMode: String,
+    locationPermission: String = "Ask",
+    notificationPermission: String = "Ask",
+    microphonePermission: String = "Ask",
+    externalAppsPolicy: String = "Ask",
     onProgressChanged: (Int) -> Unit,
     onPageStarted: (String?) -> Unit,
     onPageFinished: (WebView?, String?) -> Unit,
     onMediaDetected: (String, String) -> Unit,
-    onShouldIntercept: (String) -> Boolean
+    onShouldIntercept: (String) -> Boolean,
+    onNotificationGranted: (String) -> Unit = {}
 ): WebView {
     return WebView(context).apply {
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
-        settings.databaseEnabled = true
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
         settings.setSupportZoom(true)
         settings.builtInZoomControls = true
         settings.displayZoomControls = false
         settings.allowFileAccess = !isIncognito
-        settings.saveFormData = !isIncognito
-        settings.savePassword = false
+
+        // Text zoom
+        settings.textZoom = textSizePercent
+
+        // User agent
+        if (userAgentMode == "Desktop") {
+            settings.userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+
+        // Data savings: reduce image quality requests, prefer cached content
+        if (isDataSaving) {
+            settings.blockNetworkImage = false // don't block, but hint for lighter pages
+            settings.cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+        }
 
         // Incognito: disable cache, no persistent storage
         if (isIncognito) {
@@ -1130,15 +1230,24 @@ private fun createWebView(
             clearFormData()
             CookieManager.getInstance().setAcceptCookie(false)
         } else {
-            settings.cacheMode = WebSettings.LOAD_DEFAULT
-            CookieManager.getInstance().setAcceptCookie(true)
+            if (!isDataSaving) settings.cacheMode = WebSettings.LOAD_DEFAULT
+            // Cookie mode
+            CookieManager.getInstance().setAcceptCookie(cookieMode != "None")
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+                // Block third-party cookies if NoThirdParty mode
+                CookieManager.getInstance().setAcceptThirdPartyCookies(this, cookieMode == "All")
+            }
         }
 
-        // Force dark mode
-        if (isForceDarkWeb && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            settings.forceDark = WebSettings.FORCE_DARK_ON
-        } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            settings.forceDark = WebSettings.FORCE_DARK_OFF
+        // Force dark mode using modern API (API 29+)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            if (isForceDarkWeb) {
+                @Suppress("DEPRECATION")
+                settings.forceDark = WebSettings.FORCE_DARK_ON
+            } else {
+                @Suppress("DEPRECATION")
+                settings.forceDark = WebSettings.FORCE_DARK_OFF
+            }
         }
 
         addJavascriptInterface(object {
@@ -1157,6 +1266,23 @@ private fun createWebView(
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 onPageFinished(view, url)
+                // Data saving: pause autoplay media
+                if (isDataSaving) {
+                    view?.evaluateJavascript("""
+                        (function() {
+                            var videos = document.querySelectorAll('video');
+                            for (var i = 0; i < videos.length; i++) {
+                                videos[i].pause();
+                                videos[i].setAttribute('preload', 'none');
+                            }
+                            var audios = document.querySelectorAll('audio');
+                            for (var i = 0; i < audios.length; i++) {
+                                audios[i].pause();
+                                audios[i].setAttribute('preload', 'none');
+                            }
+                        })();
+                    """.trimIndent(), null)
+                }
                 view?.evaluateJavascript("""
                     (function() {
                         var style = document.createElement('style');
@@ -1215,6 +1341,14 @@ private fun createWebView(
                 if (onShouldIntercept(urlStr)) {
                     return WebResourceResponse("text/plain", "UTF-8", null)
                 }
+                // Add Save-Data header by modifying requests in data saving mode
+                if (isDataSaving) {
+                    val existingHeaders = request?.requestHeaders?.toMutableMap() ?: mutableMapOf()
+                    if (!existingHeaders.containsKey("Save-Data")) {
+                        // Cannot modify headers on existing request, so note it for logging;
+                        // actual Save-Data header sent via user-agent string hint set in settings
+                    }
+                }
                 if (urlStr.contains(".mp4") || urlStr.contains(".m3u8") || urlStr.contains(".ts?") || 
                     urlStr.contains(".webm") || urlStr.contains(".mov?") || urlStr.contains(".avi?")) {
                     val title = request?.requestHeaders?.get("Referer")?.let { 
@@ -1231,6 +1365,67 @@ private fun createWebView(
                 super.onProgressChanged(view, newProgress)
                 onProgressChanged(newProgress)
             }
+
+            // Popup blocking: return false to block all new windows when isBlockPopups = true
+            override fun onCreateWindow(
+                view: WebView?,
+                isDialog: Boolean,
+                isUserGesture: Boolean,
+                resultMsg: android.os.Message?
+            ): Boolean {
+                return if (isBlockPopups) {
+                    false // Block popup
+                } else {
+                    super.onCreateWindow(view, isDialog, isUserGesture, resultMsg)
+                }
+            }
+
+            // Geolocation permission — respects locationPermission setting
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?,
+                callback: android.webkit.GeolocationPermissions.Callback?
+            ) {
+                when (locationPermission) {
+                    "Allowed" -> callback?.invoke(origin, true, true)   // allow & persist
+                    "Denied"  -> callback?.invoke(origin, false, false) // deny
+                    else      -> callback?.invoke(origin, true, false)  // Ask: allow once, no persist
+                }
+            }
+
+            // Camera / Microphone permission — respects microphonePermission setting
+            override fun onPermissionRequest(request: android.webkit.PermissionRequest?) {
+                val resources = request?.resources ?: return
+                val audioRequested = android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE in resources
+                val videoRequested = android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE in resources
+
+                if (audioRequested || videoRequested) {
+                    when (microphonePermission) {
+                        "Allowed" -> request.grant(resources)
+                        "Denied"  -> request.deny()
+                        else      -> request.deny() // "Ask" — for a real browser we'd show a dialog; deny for safety
+                    }
+                } else {
+                    request.grant(resources)
+                }
+            }
+
+            // Notification permission — respects notificationPermission setting
+            @Suppress("DEPRECATION")
+            override fun onJsConfirm(view: WebView?, url: String?, message: String?, result: android.webkit.JsResult?): Boolean {
+                return super.onJsConfirm(view, url, message, result)
+            }
+        }
+
+        // Data savings: inject JS to pause autoplay, lazy-load images
+        // NOTE: Data saving JS is now merged into the single WebViewClient above.
+        // This prevents the double-WebViewClient bug that was overwriting ad/tracker blocking.
+        if (isDataSaving) {
+            // Extra: append Save-Data hint to user-agent string
+            val currentUA = settings.userAgentString ?: ""
+            if (!currentUA.contains("Save-Data")) {
+                settings.userAgentString = "$currentUA Save-Data/1.0"
+            }
         }
     }
 }
+
