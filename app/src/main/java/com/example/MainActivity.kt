@@ -2,6 +2,7 @@ package com.example
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -84,6 +85,11 @@ class MainActivity : ComponentActivity() {
                     } else {
                         isNavCollapsed = false
                     }
+                }
+
+                // Back gesture: navigate to Home first, exit only from Home
+                BackHandler(enabled = currentTab != "Home") {
+                    currentTab = "Home"
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
