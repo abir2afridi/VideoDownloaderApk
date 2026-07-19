@@ -59,6 +59,10 @@ fun SettingsTab(
     val browserTogglePosition by viewModel.browserTogglePosition.collectAsState()
     val isForceDarkWeb by viewModel.isForceDarkWeb.collectAsState()
     val downloadFolderPath by viewModel.downloadFolderPath.collectAsState()
+    val isTime24Hour by viewModel.isTime24Hour.collectAsState()
+    val hourColor by viewModel.hourColor.collectAsState()
+    val minuteColor by viewModel.minuteColor.collectAsState()
+    val secondColor by viewModel.secondColor.collectAsState()
 
     var showPrivacyScreen by remember { mutableStateOf(false) }
     var showSearchScreen by remember { mutableStateOf(false) }
@@ -244,6 +248,37 @@ fun SettingsTab(
                     title = "Homepage",
                     subtitle = "Speed dial, suggested sites, news feed",
                     onClick = { showHomepageScreen = true }
+                )
+            }
+
+            SettingsCard(
+                sectionIcon = Icons.Default.AccessTime,
+                sectionTitle = "Time Display Settings"
+            ) {
+                SettingsToggleRow(
+                    icon = Icons.Default.Schedule,
+                    iconTint = Color(0xFF00BCD4),
+                    title = "24-Hour Format",
+                    subtitle = if (isTime24Hour) "Show time in 24-hour format" else "Show time in 12-hour format",
+                    checked = isTime24Hour,
+                    onCheckedChange = { viewModel.isTime24Hour.value = it },
+                    tag = "time_format_switch"
+                )
+
+                TimeColorRow(
+                    label = "Hour Color",
+                    currentColor = hourColor,
+                    onColorSelected = { viewModel.hourColor.value = it }
+                )
+                TimeColorRow(
+                    label = "Minute Color",
+                    currentColor = minuteColor,
+                    onColorSelected = { viewModel.minuteColor.value = it }
+                )
+                TimeColorRow(
+                    label = "Second Color",
+                    currentColor = secondColor,
+                    onColorSelected = { viewModel.secondColor.value = it }
                 )
             }
 
@@ -633,7 +668,9 @@ private fun ColorPickerDialog(
     selectedAccentColor: String,
     currentPrimary: Color,
     onColorSelected: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    title: String = "Pick Accent Color",
+    showDefault: Boolean = false
 ) {
     var hue by remember { mutableFloatStateOf(0f) }
     var sat by remember { mutableFloatStateOf(0f) }
@@ -661,7 +698,7 @@ private fun ColorPickerDialog(
                 ) {
                     Icon(Icons.Default.Palette, contentDescription = null, tint = currentPrimary, modifier = Modifier.size(16.dp))
                 }
-                Text("Pick Accent Color", fontWeight = FontWeight.ExtraBold)
+                Text(title, fontWeight = FontWeight.ExtraBold)
             }
         },
         text = {
@@ -670,21 +707,30 @@ private fun ColorPickerDialog(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Preset swatches
+                val allSwatches = if (showDefault) {
+                    listOf("Default" to null as Color?) + accentColors
+                } else accentColors
                 androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
                     columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
                     contentPadding = PaddingValues(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.height(120.dp)
+                    modifier = Modifier.height(if (showDefault) 156.dp else 120.dp)
                 ) {
-                    items(accentColors.size) { index ->
-                        val (name, color) = accentColors[index]
+                    items(allSwatches.size) { index ->
+                        val (name, color) = allSwatches[index]
                         val isSelected = selectedAccentColor == name
                         Box(
                             modifier = Modifier
                                 .aspectRatio(1f)
                                 .clip(CircleShape)
-                                .background(color ?: BentoPrimary)
+                                .background(
+                                    when {
+                                        color != null -> color
+                                        name == "Default" -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                                        else -> BentoPrimary
+                                    }
+                                )
                                 .clickable { onColorSelected(name) }
                                 .border(
                                     width = if (isSelected) 3.dp else 0.dp,
@@ -694,10 +740,13 @@ private fun ColorPickerDialog(
                             contentAlignment = Alignment.Center
                         ) {
                             if (isSelected) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                                Icon(Icons.Default.Check, contentDescription = null, tint = if (name == "Default") MaterialTheme.colorScheme.onSurface else Color.White, modifier = Modifier.size(24.dp))
                             }
                             if (name == "Bento" && !isSelected) {
                                 Text("B", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                            if (name == "Default" && !isSelected) {
+                                Text("A", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
                             }
                         }
                     }
@@ -1257,6 +1306,77 @@ private fun AboutRow(onNavigateToAbout: () -> Unit) {
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
             modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+@Composable
+private fun TimeColorRow(
+    label: String,
+    currentColor: String,
+    onColorSelected: (String) -> Unit
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    val displayColor = if (currentColor == "Default") MaterialTheme.colorScheme.onSurface
+                       else try { Color(android.graphics.Color.parseColor(currentColor)) } catch (_: Exception) { MaterialTheme.colorScheme.onSurface }
+    val displayName = if (currentColor == "Default") "Auto" else currentColor
+
+    SettingsRow(
+        icon = Icons.Default.FormatColorFill,
+        iconTint = if (currentColor == "Default") Color(0xFF9E9E9E) else displayColor,
+        title = label,
+        subtitle = displayName,
+        trailing = {
+            Surface(
+                onClick = { showPicker = true },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(displayColor)
+                    )
+                    Text(
+                        text = "Edit",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        }
+    )
+
+    if (showPicker) {
+        val accentColors = listOf(
+            "#FF1744" to Color(0xFFFF1744),
+            "#D81B60" to Color(0xFFD81B60),
+            "#8E24AA" to Color(0xFF8E24AA),
+            "#3949AB" to Color(0xFF3949AB),
+            "#00ACC1" to Color(0xFF00ACC1),
+            "#43A047" to Color(0xFF43A047),
+            "#FDD835" to Color(0xFFFDD835),
+            "#FB8C00" to Color(0xFFFB8C00),
+            "#6D4C41" to Color(0xFF6D4C41),
+            "#FFFFFF" to Color.White,
+            "#000000" to Color.Black,
+            "#E0E0E0" to Color(0xFFE0E0E0)
+        )
+        ColorPickerDialog(
+            accentColors = accentColors,
+            selectedAccentColor = currentColor,
+            currentPrimary = if (currentColor == "Default") MaterialTheme.colorScheme.primary else displayColor,
+            onColorSelected = { color -> onColorSelected(color); showPicker = false },
+            onDismiss = { showPicker = false },
+            title = "Pick $label",
+            showDefault = true
         )
     }
 }

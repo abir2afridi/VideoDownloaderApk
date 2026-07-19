@@ -95,7 +95,7 @@ class MainActivity : ComponentActivity() {
                         when (currentTab) {
                             "Home" -> DashboardTab(viewModel, onNavigateToTab = { currentTab = it })
                             "Browser" -> BrowserTab(viewModel)
-                            "Downloads" -> DownloadsTab(viewModel)
+                            "Downloads" -> DownloadsTab(viewModel, onNavigateToHome = { currentTab = "Home" })
                             "Vault" -> VaultTab(viewModel)
                             "Settings" -> SettingsTab(
                                 viewModel = viewModel,

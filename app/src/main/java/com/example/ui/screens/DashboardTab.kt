@@ -86,6 +86,10 @@ fun DashboardTab(
     val downloads by viewModel.publicDownloads.collectAsState()
     val isIncognito by viewModel.isIncognito.collectAsState()
     val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
+    val isTime24Hour by viewModel.isTime24Hour.collectAsState()
+    val hourColor by viewModel.hourColor.collectAsState()
+    val minuteColor by viewModel.minuteColor.collectAsState()
+    val secondColor by viewModel.secondColor.collectAsState()
 
     var linkText by remember { mutableStateOf("") }
     var analyzeRequested by remember { mutableStateOf(false) }
@@ -194,7 +198,7 @@ fun DashboardTab(
     val recentDownload = completedDownloads.maxByOrNull { it.id }
 
     // Live Clock State
-    var currentTime by remember { mutableStateOf(SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())) }
+    var currentTime by remember { mutableStateOf("") }
     var currentDate by remember { mutableStateOf(SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(Date())) }
     
     // Connectivity State
@@ -202,10 +206,11 @@ fun DashboardTab(
     var pingValue by remember { mutableStateOf<Long?>(null) }
     var connectionStrength by remember { mutableStateOf("N/A") }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isTime24Hour) {
+        currentTime = SimpleDateFormat(if (isTime24Hour) "HH:mm:ss" else "hh:mm:ss a", Locale.getDefault()).format(Date())
         while (true) {
             val now = Date()
-            currentTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(now)
+            currentTime = SimpleDateFormat(if (isTime24Hour) "HH:mm:ss" else "hh:mm:ss a", Locale.getDefault()).format(now)
             currentDate = SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(now)
             
             // Check Network
@@ -380,14 +385,68 @@ fun DashboardTab(
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = currentTime,
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
-                                color = MaterialTheme.colorScheme.onSurface
+                        val timeSegments = currentTime.split(":")
+                        val hCol = hexOrNull(hourColor) ?: MaterialTheme.colorScheme.onSurface
+                        val mCol = hexOrNull(minuteColor) ?: MaterialTheme.colorScheme.onSurface
+                        val sCol = hexOrNull(secondColor) ?: MaterialTheme.colorScheme.onSurface
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            Text(
+                                text = timeSegments.getOrElse(0) { "00" },
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = hCol
                             )
-                        )
+                            Text(
+                                text = ":",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            )
+                            Text(
+                                text = timeSegments.getOrElse(1) { "00" },
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = mCol
+                            )
+                            Text(
+                                text = ":",
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            )
+                            val secPart = timeSegments.getOrElse(2) { "00" }
+                            val secOnly = secPart.take(2)
+                            val suffix = secPart.drop(2)
+                            Text(
+                                text = secOnly,
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = sCol
+                            )
+                            if (suffix.isNotBlank()) {
+                                Text(
+                                    text = suffix,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(start = 4.dp).alignByBaseline()
+                                )
+                            }
+                        }
                         Text(
                             text = currentDate,
                             style = MaterialTheme.typography.labelSmall.copy(
@@ -1067,6 +1126,11 @@ fun MinimalCard(onClick: (() -> Unit)?, modifier: Modifier = Modifier, container
     } else {
         Card(modifier = modifier, shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = containerColor), border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) { content() }
     }
+}
+
+private fun hexOrNull(hex: String): Color? {
+    if (hex == "Default") return null
+    return try { Color(android.graphics.Color.parseColor(hex)) } catch (_: Exception) { null }
 }
 
 private fun formatDuration(seconds: Long): String {

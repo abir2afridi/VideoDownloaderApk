@@ -88,6 +88,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ?: (application.filesDir.absolutePath + "/NexLoad"))
     )
 
+    // ─── Time Settings ───────────────────────────────────────────────────────
+    val isTime24Hour = MutableStateFlow(settingsPrefs.getBoolean("time_24h", true))
+    val hourColor = MutableStateFlow(settingsPrefs.getString("hour_color", "Default") ?: "Default")
+    val minuteColor = MutableStateFlow(settingsPrefs.getString("minute_color", "Default") ?: "Default")
+    val secondColor = MutableStateFlow(settingsPrefs.getString("second_color", "Default") ?: "Default")
+
     // ─── Browser Settings (Persisted in browser_settings) ───────────────────
 
     // Privacy & Blocking
@@ -192,6 +198,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persistFlow(browserTogglePosition){ putString("browser_toggle_pos", it) }
         persistFlow(isForceDarkWeb)       { putBoolean("force_dark_web", it) }
         persistFlow(downloadFolderPath)   { putString("download_path", it) }
+
+        // Persist time settings
+        persistFlow(isTime24Hour)         { putBoolean("time_24h", it) }
+        persistFlow(hourColor)            { putString("hour_color", it) }
+        persistFlow(minuteColor)          { putString("minute_color", it) }
+        persistFlow(secondColor)          { putString("second_color", it) }
 
         // Persist browser_settings on change
         persistBrowserFlow(isAdBlocking)            { putBoolean("ad_blocking", it) }

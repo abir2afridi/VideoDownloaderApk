@@ -43,12 +43,16 @@ import kotlinx.coroutines.launch
 import com.example.ui.components.TabHeader
 import com.example.ui.components.DownloadHealthIndicators
 import com.example.ui.components.VideoPlayerDialog
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.rememberLottieComposition
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-fun DownloadsTab(viewModel: MainViewModel) {
+fun DownloadsTab(viewModel: MainViewModel, onNavigateToHome: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val downloads by viewModel.publicDownloads.collectAsState()
@@ -59,11 +63,6 @@ fun DownloadsTab(viewModel: MainViewModel) {
 
     val tabTitles = listOf("Downloads", "Files")
     val pagerState = rememberPagerState(pageCount = { tabTitles.size })
-
-    // Back: Files inner tab → Downloads inner tab → app Home
-    BackHandler(enabled = pagerState.currentPage == 1) {
-        scope.launch { pagerState.animateScrollToPage(0) }
-    }
 
     // Downloads selection
     var isDownloadsSelectionMode by remember { mutableStateOf(false) }
@@ -83,6 +82,21 @@ fun DownloadsTab(viewModel: MainViewModel) {
 
     val isSelectionMode = isDownloadsSelectionMode || isFilesSelectionMode
 
+    // Back: selection → unselect → Files tab → Downloads tab → Home
+    BackHandler(enabled = isSelectionMode || pagerState.currentPage == 1) {
+        if (isSelectionMode) {
+            isDownloadsSelectionMode = false
+            isFilesSelectionMode = false
+            downloadSelectedIds.clear()
+            fileSelectedIds.clear()
+        } else if (pagerState.currentPage == 1) {
+            scope.launch { pagerState.animateScrollToPage(0) }
+        }
+    }
+    BackHandler(enabled = pagerState.currentPage == 0 && !isSelectionMode) {
+        onNavigateToHome()
+    }
+
     Scaffold(
         topBar = {
             if (isSelectionMode) {
@@ -99,21 +113,57 @@ fun DownloadsTab(viewModel: MainViewModel) {
                                 )
                             },
                             navigationIcon = {
-                                IconButton(onClick = {
-                                    isDownloadsSelectionMode = false
-                                    isFilesSelectionMode = false
-                                    downloadSelectedIds.clear()
-                                    fileSelectedIds.clear()
-                                }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Cancel")
+                                Row {
+                                    IconButton(onClick = {
+                                        isDownloadsSelectionMode = false
+                                        isFilesSelectionMode = false
+                                        downloadSelectedIds.clear()
+                                        fileSelectedIds.clear()
+                                    }) {
+                                        Icon(Icons.Default.Close, contentDescription = "Cancel")
+                                    }
+                                    // Select All / Deselect All
+                                    val allIds = when {
+                                        isDownloadsSelectionMode -> (downloads.map { it.id })
+                                        isFilesSelectionMode -> (completedFiles.map { it.id })
+                                        else -> emptyList()
+                                    }
+                                    val selectedIds = downloadSelectedIds + fileSelectedIds
+                                    val allSelected = allIds.isNotEmpty() && selectedIds.containsAll(allIds)
+                                    val selectAllLabel = if (allSelected) "Deselect All" else "Select All"
+                                    val selectAllIcon = if (allSelected) Icons.Default.Deselect else Icons.Default.SelectAll
+                                    IconButton(onClick = {
+                                        if (allSelected) {
+                                            downloadSelectedIds.clear()
+                                            fileSelectedIds.clear()
+                                        } else {
+                                            if (isDownloadsSelectionMode) {
+                                                downloadSelectedIds.clear()
+                                                downloadSelectedIds.addAll(downloads.map { it.id })
+                                            }
+                                            if (isFilesSelectionMode) {
+                                                fileSelectedIds.clear()
+                                                fileSelectedIds.addAll(completedFiles.map { it.id })
+                                            }
+                                        }
+                                    }) {
+                                        Icon(selectAllIcon, contentDescription = selectAllLabel)
+                                    }
                                 }
                             },
                             actions = {
-                                if (isFilesSelectionMode && fileSelectedIds.isNotEmpty()) {
+                                // Share — works for both tabs
+                                if ((isDownloadsSelectionMode && downloadSelectedIds.isNotEmpty()) ||
+                                    (isFilesSelectionMode && fileSelectedIds.isNotEmpty())
+                                ) {
+                                    val shareIds = (downloadSelectedIds + fileSelectedIds).toList()
                                     IconButton(onClick = {
-                                        val filesToShare = completedFiles.filter { it.id in fileSelectedIds }.map { File(it.filepath) }.filter { it.exists() }
+                                        val allItems = downloads + completedFiles
+                                        val filesToShare = allItems.filter { it.id in shareIds }.map { File(it.filepath) }.filter { it.exists() }
                                         if (filesToShare.isNotEmpty()) shareMultipleFiles(context, filesToShare)
+                                        isDownloadsSelectionMode = false
                                         isFilesSelectionMode = false
+                                        downloadSelectedIds.clear()
                                         fileSelectedIds.clear()
                                     }) {
                                         Icon(Icons.Default.Share, contentDescription = "Share Selected")
@@ -242,6 +292,21 @@ fun DownloadsTab(viewModel: MainViewModel) {
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                val libComposition by rememberLottieComposition(
+                    LottieCompositionSpec.Url("https://lottie.host/80a92798-0341-4b0d-809a-9e1bca596503/Go2hkL4uF9.lottie")
+                )
+                LottieAnimation(
+                    composition = libComposition,
+                    iterations = LottieConstants.IterateForever,
+                    speed = 1f,
+                    modifier = Modifier.size(80.dp)
+                )
+            }
+
             TabRow(
                 selectedTabIndex = pagerState.currentPage,
                 containerColor = Color.Transparent,
