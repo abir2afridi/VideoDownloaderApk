@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,9 +31,12 @@ import android.content.Intent
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import com.example.ui.theme.*
-
 import androidx.compose.foundation.BorderStroke
-import com.example.ui.components.TabHeader
+import androidx.compose.ui.text.style.TextAlign
+import com.example.ui.screens.browser.BrowserPrivacyScreen
+import com.example.ui.screens.browser.BrowserSearchSettingsScreen
+import com.example.ui.screens.browser.BrowserContentSettingsScreen
+import com.example.ui.screens.browser.BrowserHomepageSettingsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,23 +58,20 @@ fun SettingsTab(
     val isForceDarkWeb by viewModel.isForceDarkWeb.collectAsState()
     val downloadFolderPath by viewModel.downloadFolderPath.collectAsState()
 
-    // Folder Picker Launcher
+    var showPrivacyScreen by remember { mutableStateOf(false) }
+    var showSearchScreen by remember { mutableStateOf(false) }
+    var showContentScreen by remember { mutableStateOf(false) }
+    var showHomepageScreen by remember { mutableStateOf(false) }
+
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),
         onResult = { uri: Uri? ->
             uri?.let {
-                // Persist permissions
                 context.contentResolver.takePersistableUriPermission(
                     it,
                     Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
                 )
-                
-                // For simplicity in this app, we'll try to get a display path or just use the URI string
-                // Ideally, we'd use DocumentFile, but for a simple "Path" display:
                 val path = it.path ?: it.toString()
-                
-                // We'll update the viewmodel. Note: In a real app, you'd store the URI 
-                // and use DocumentFile for file operations on modern Android.
                 viewModel.downloadFolderPath.value = path
                 Toast.makeText(context, "Download folder updated!", Toast.LENGTH_SHORT).show()
             }
@@ -81,15 +80,26 @@ fun SettingsTab(
 
     Scaffold(
         topBar = {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp)
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
-                TabHeader(
-                    category = "NexLoad Pro",
-                    title = "Preferences"
+                Text(
+                    text = "NEXLOAD PRO",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 2.sp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                    )
+                )
+                Text(
+                    text = "Preferences",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-1).sp
+                    )
                 )
             }
         }
@@ -98,244 +108,732 @@ fun SettingsTab(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 24.dp)
                 .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Section 1: UI & Styling
-            SettingsSectionHeader(title = "UI & Customization")
+            Spacer(modifier = Modifier.height(4.dp))
 
-            // Theme Mode Selection
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            SettingsCard(
+                sectionIcon = Icons.Default.Palette,
+                sectionTitle = "UI & Customization"
             ) {
-                Row(modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Brightness4, contentDescription = null, tint = Color.Gray)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text("Theme Mode", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        Text("Switch between Light, Dark, or System mode", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                    }
-                }
-                
-                var themeExpanded by remember { mutableStateOf(false) }
-                Box {
-                    Button(onClick = { themeExpanded = true }, modifier = Modifier.testTag("theme_mode_selector")) {
-                        Text(selectedThemeMode)
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    }
-                    DropdownMenu(expanded = themeExpanded, onDismissRequest = { themeExpanded = false }) {
-                        listOf("System", "Light", "Dark").forEach { mode ->
-                            DropdownMenuItem(
-                                text = { Text(mode) },
-                                onClick = {
-                                    viewModel.selectedThemeMode.value = mode
-                                    themeExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-            
-            // AMOLED Black Switch
-            SettingsToggleRow(
-                icon = Icons.Default.BrightnessMedium,
-                title = "AMOLED Black Mode",
-                subtitle = "Use pure black pitch dark theme to maximize OLED battery savings",
-                checked = isAmoledMode,
-                onCheckedChange = { viewModel.isAmoledMode.value = it },
-                tag = "amoled_mode_switch"
-            )
+                ThemeModeRow(selectedThemeMode, onModeSelected = { viewModel.selectedThemeMode.value = it })
 
-            // Accent Color Selection
-            var showColorPicker by remember { mutableStateOf(false) }
-            val accentColors = listOf(
-                "Bento" to null,
-                "Teal" to TealPrimary,
-                "Blue" to BluePrimary,
-                "Orange" to OrangePrimary,
-                "#FF1744" to Color(0xFFFF1744), // Red
-                "#D81B60" to Color(0xFFD81B60), // Pink
-                "#8E24AA" to Color(0xFF8E24AA), // Purple
-                "#3949AB" to Color(0xFF3949AB), // Indigo
-                "#00ACC1" to Color(0xFF00ACC1), // Cyan
-                "#43A047" to Color(0xFF43A047), // Green
-                "#FDD835" to Color(0xFFFDD835), // Yellow
-                "#FB8C00" to Color(0xFFFB8C00), // Orange
-                "#6D4C41" to Color(0xFF6D4C41)  // Brown
-            )
+                SettingsToggleRow(
+                    icon = Icons.Default.BrightnessMedium,
+                    iconTint = Color(0xFFFF9800),
+                    title = "AMOLED Black Mode",
+                    subtitle = "Pure black background for OLED battery savings",
+                    checked = isAmoledMode,
+                    onCheckedChange = { viewModel.isAmoledMode.value = it },
+                    tag = "amoled_mode_switch"
+                )
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.Palette, contentDescription = null, tint = Color.Gray)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text("Theme Accent Color", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        Text("Choose application secondary branding accents", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                    }
-                }
-                
-                Surface(
-                    onClick = { showColorPicker = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape)
-                                .background(MaterialTheme.colorScheme.primary)
-                        )
-                        Text(
-                            text = if (selectedAccentColor.startsWith("#")) "Custom" else selectedAccentColor,
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
+                AccentColorRow(
+                    selectedAccentColor = selectedAccentColor,
+                    onColorSelected = { viewModel.selectedAccentColor.value = it }
+                )
 
-            if (showColorPicker) {
-                AlertDialog(
-                    onDismissRequest = { showColorPicker = false },
-                    title = { Text("Pick Accent Color") },
-                    text = {
-                        Column {
-                            androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                                columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
-                                contentPadding = PaddingValues(8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                                modifier = Modifier.height(240.dp)
-                            ) {
-                                items(accentColors.size) { index ->
-                                    val (name, color) = accentColors[index]
-                                    val isSelected = selectedAccentColor == name
-                                    
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .clip(CircleShape)
-                                            .background(color ?: BentoPrimary)
-                                            .clickable {
-                                                viewModel.selectedAccentColor.value = name
-                                                showColorPicker = false
-                                            }
-                                            .border(
-                                                width = 3.dp,
-                                                color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
-                                                shape = CircleShape
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (isSelected) {
-                                            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-                                        }
-                                        if (name == "Bento") {
-                                            Text("B", color = Color.White, fontWeight = FontWeight.Bold)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = { showColorPicker = false }) {
-                            Text("Close")
-                        }
-                    }
+                BrowserToggleRow(
+                    browserTogglePosition = browserTogglePosition,
+                    onPositionSelected = { viewModel.browserTogglePosition.value = it }
                 )
             }
 
-            // Browser Toggle Position
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            SettingsCard(
+                sectionIcon = Icons.Default.CloudDownload,
+                sectionTitle = "Download Engine"
             ) {
-                Row(modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.OpenInFull, contentDescription = null, tint = Color.Gray)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text("Browser Toggle Position", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        Text("Where to place the collapsed navigation icon", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                SettingsToggleRow(
+                    icon = Icons.Default.Wifi,
+                    iconTint = Color(0xFF2196F3),
+                    title = "Wi-Fi Only Downloads",
+                    subtitle = "Prevent downloads on cellular networks",
+                    checked = isWifiOnly,
+                    onCheckedChange = { viewModel.isWifiOnly.value = it },
+                    tag = "wifi_only_switch"
+                )
+
+                DownloadPathRow(
+                    downloadFolderPath = downloadFolderPath,
+                    onPickFolder = { folderPickerLauncher.launch(null) }
+                )
+
+                MaxDownloadsRow(
+                    maxActiveDownloads = maxActiveDownloads,
+                    onValueChange = { viewModel.maxActiveDownloads.value = it }
+                )
+            }
+
+            SettingsCard(
+                sectionIcon = Icons.Default.Security,
+                sectionTitle = "Browser Security & Privacy"
+            ) {
+                SettingsToggleRow(
+                    icon = Icons.Default.Https,
+                    iconTint = Color(0xFF4CAF50),
+                    title = "HTTPS-Only Protocol",
+                    subtitle = "Enforce secure connections in the browser",
+                    checked = isHttpsOnly,
+                    onCheckedChange = { viewModel.isHttpsOnly.value = it },
+                    tag = "https_only_switch"
+                )
+
+                SettingsToggleRow(
+                    icon = Icons.Default.Shield,
+                    iconTint = Color(0xFFE91E63),
+                    title = "Tracker & Ad Blocking",
+                    subtitle = "Block telemetry and tracking scripts",
+                    checked = isTrackerBlocking,
+                    onCheckedChange = { viewModel.isTrackerBlocking.value = it },
+                    tag = "tracker_block_switch"
+                )
+
+                SettingsToggleRow(
+                    icon = Icons.Default.DarkMode,
+                    iconTint = Color(0xFF9C27B0),
+                    title = "Force Dark Mode for Web",
+                    subtitle = "Auto-render websites in dark theme",
+                    checked = isForceDarkWeb,
+                    onCheckedChange = { viewModel.isForceDarkWeb.value = it },
+                    tag = "force_dark_web_switch"
+                )
+            }
+
+            SettingsCard(
+                sectionIcon = Icons.Default.Tune,
+                sectionTitle = "Browser Settings"
+            ) {
+                BrowserSettingsRow(
+                    icon = Icons.Default.Security,
+                    iconTint = Color(0xFF43A047),
+                    title = "Privacy & Security",
+                    subtitle = "Cookies, site permissions, autofill, Web3",
+                    onClick = { showPrivacyScreen = true }
+                )
+                BrowserSettingsRow(
+                    icon = Icons.Default.Search,
+                    iconTint = Color(0xFF1E88E5),
+                    title = "Search Settings",
+                    subtitle = "Search engine, trending, suggestions",
+                    onClick = { showSearchScreen = true }
+                )
+                BrowserSettingsRow(
+                    icon = Icons.Default.Tune,
+                    iconTint = Color(0xFF8E24AA),
+                    title = "Content",
+                    subtitle = "Text size, pop-ups, user agent, data saving",
+                    onClick = { showContentScreen = true }
+                )
+                BrowserSettingsRow(
+                    icon = Icons.Default.Home,
+                    iconTint = Color(0xFFE65100),
+                    title = "Homepage",
+                    subtitle = "Speed dial, suggested sites, news feed",
+                    onClick = { showHomepageScreen = true }
+                )
+            }
+
+            SettingsCard(
+                sectionIcon = Icons.Default.Lock,
+                sectionTitle = "Privacy Vault Security"
+            ) {
+                ResetVaultRow(onReset = {
+                    viewModel.resetVault()
+                    Toast.makeText(context, "Vault reset successfully", Toast.LENGTH_SHORT).show()
+                })
+            }
+
+            SettingsCard(
+                sectionIcon = Icons.Default.Info,
+                sectionTitle = "About"
+            ) {
+                AboutRow(onNavigateToAbout = onNavigateToAbout)
+            }
+
+            Spacer(modifier = Modifier.height(100.dp))
+        }
+    }
+
+    if (showPrivacyScreen) {
+        BrowserPrivacyScreen(
+            viewModel = viewModel,
+            onBack = { showPrivacyScreen = false }
+        )
+    }
+    if (showSearchScreen) {
+        BrowserSearchSettingsScreen(
+            viewModel = viewModel,
+            onBack = { showSearchScreen = false }
+        )
+    }
+    if (showContentScreen) {
+        BrowserContentSettingsScreen(
+            viewModel = viewModel,
+            onBack = { showContentScreen = false }
+        )
+    }
+    if (showHomepageScreen) {
+        BrowserHomepageSettingsScreen(
+            viewModel = viewModel,
+            onBack = { showHomepageScreen = false }
+        )
+    }
+}
+
+@Composable
+private fun BrowserSettingsRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(iconTint.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconTint.copy(alpha = 0.9f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+@Composable
+private fun SettingsCard(
+    sectionIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    sectionTitle: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = sectionIcon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Text(
+                    text = sectionTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.5).sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            HorizontalDivider(
+                thickness = 0.5.dp,
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+            )
+
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SettingsRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    trailing: @Composable (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(iconTint.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = iconTint.copy(alpha = 0.9f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+        }
+        if (trailing != null) {
+            Spacer(modifier = Modifier.width(12.dp))
+            trailing()
+        }
+    }
+}
+
+@Composable
+private fun ThemeModeRow(
+    selectedThemeMode: String,
+    onModeSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val modes = listOf("System", "Light", "Dark")
+
+    SettingsRow(
+        icon = Icons.Default.Brightness4,
+        iconTint = Color(0xFFFF9800),
+        title = "Theme Mode",
+        subtitle = "System, Light, or Dark appearance",
+        trailing = {
+            Box {
+                Surface(
+                    onClick = { expanded = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    modifier = Modifier.testTag("theme_mode_selector")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val modeIcon = when (selectedThemeMode) {
+                            "Light" -> Icons.Default.LightMode
+                            "Dark" -> Icons.Default.DarkMode
+                            else -> Icons.Default.BrightnessAuto
+                        }
+                        Icon(
+                            imageVector = modeIcon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = selectedThemeMode,
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
-                
-                var posExpanded by remember { mutableStateOf(false) }
-                Box {
-                    Button(onClick = { posExpanded = true }, modifier = Modifier.testTag("toggle_pos_selector")) {
-                        Text(browserTogglePosition)
-                        Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                    }
-                    DropdownMenu(expanded = posExpanded, onDismissRequest = { posExpanded = false }) {
-                        listOf("Bottom Left", "Bottom Center", "Bottom Right").forEach { pos ->
-                            DropdownMenuItem(
-                                text = { Text(pos) },
-                                onClick = {
-                                    viewModel.browserTogglePosition.value = pos
-                                    posExpanded = false
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    modes.forEach { mode ->
+                        DropdownMenuItem(
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    val mIcon = when (mode) {
+                                        "Light" -> Icons.Default.LightMode
+                                        "Dark" -> Icons.Default.DarkMode
+                                        else -> Icons.Default.BrightnessAuto
+                                    }
+                                    Icon(
+                                        imageVector = mIcon,
+                                        contentDescription = null,
+                                        tint = if (mode == selectedThemeMode) MaterialTheme.colorScheme.primary
+                                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = mode,
+                                        fontWeight = if (mode == selectedThemeMode) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (mode == selectedThemeMode) MaterialTheme.colorScheme.primary
+                                               else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (mode == selectedThemeMode) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
-                            )
-                        }
+                            },
+                            onClick = {
+                                onModeSelected(mode)
+                                expanded = false
+                            }
+                        )
                     }
                 }
             }
+        }
+    )
+}
 
-            HorizontalDivider()
+@Composable
+private fun AccentColorRow(
+    selectedAccentColor: String,
+    onColorSelected: (String) -> Unit
+) {
+    var showColorPicker by remember { mutableStateOf(false) }
+    val accentColors = listOf(
+        "Bento" to null,
+        "Teal" to TealPrimary,
+        "Blue" to BluePrimary,
+        "Orange" to OrangePrimary,
+        "#FF1744" to Color(0xFFFF1744),
+        "#D81B60" to Color(0xFFD81B60),
+        "#8E24AA" to Color(0xFF8E24AA),
+        "#3949AB" to Color(0xFF3949AB),
+        "#00ACC1" to Color(0xFF00ACC1),
+        "#43A047" to Color(0xFF43A047),
+        "#FDD835" to Color(0xFFFDD835),
+        "#FB8C00" to Color(0xFFFB8C00),
+        "#6D4C41" to Color(0xFF6D4C41)
+    )
 
-            // Section 2: Engine Preferences
-            SettingsSectionHeader(title = "Download Engine")
-
-            // Wi-Fi Only Switch
-            SettingsToggleRow(
-                icon = Icons.Default.Wifi,
-                title = "Wi-Fi Only Downloads",
-                subtitle = "Prevent downloading on cellular networks to conserve mobile plan data",
-                checked = isWifiOnly,
-                onCheckedChange = { viewModel.isWifiOnly.value = it },
-                tag = "wifi_only_switch"
-            )
-
-            // Download Path Display
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .clickable { folderPickerLauncher.launch(null) },
-                verticalAlignment = Alignment.CenterVertically
+    SettingsRow(
+        icon = Icons.Default.Palette,
+        iconTint = Color(0xFFE91E63),
+        title = "Accent Color",
+        subtitle = if (selectedAccentColor.startsWith("#")) "Custom color" else "$selectedAccentColor theme",
+        trailing = {
+            Surface(
+                onClick = { showColorPicker = true },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
             ) {
-                Icon(Icons.Default.Folder, contentDescription = null, tint = Color.Gray)
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Storage Path", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
                     Text(
-                        text = downloadFolderPath,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        text = if (selectedAccentColor.startsWith("#")) "Custom" else selectedAccentColor,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
+            }
+        }
+    )
+
+    if (showColorPicker) {
+        AlertDialog(
+            onDismissRequest = { showColorPicker = false },
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    }
+                    Text("Pick Accent Color", fontWeight = FontWeight.ExtraBold)
+                }
+            },
+            text = {
+                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
+                    contentPadding = PaddingValues(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(accentColors.size) { index ->
+                        val (name, color) = accentColors[index]
+                        val isSelected = selectedAccentColor == name
+
+                        Box(
+                            modifier = Modifier
+                                .aspectRatio(1f)
+                                .clip(CircleShape)
+                                .background(color ?: BentoPrimary)
+                                .clickable {
+                                    onColorSelected(name)
+                                    showColorPicker = false
+                                }
+                                .border(
+                                    width = if (isSelected) 3.dp else 0.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                            }
+                            if (name == "Bento" && !isSelected) {
+                                Text("B", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showColorPicker = false }) {
+                    Text("Close", fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun BrowserToggleRow(
+    browserTogglePosition: String,
+    onPositionSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val positions = listOf("Bottom Left", "Bottom Center", "Bottom Right")
+    val positionIcons = mapOf(
+        "Bottom Left" to Icons.Default.AlignHorizontalLeft,
+        "Bottom Center" to Icons.Default.AlignHorizontalCenter,
+        "Bottom Right" to Icons.Default.AlignHorizontalRight
+    )
+
+    SettingsRow(
+        icon = Icons.Default.OpenInFull,
+        iconTint = Color(0xFF00BCD4),
+        title = "Browser Toggle Position",
+        subtitle = "Collapsed nav icon alignment",
+        trailing = {
+            Box {
+                Surface(
+                    onClick = { expanded = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    modifier = Modifier.testTag("toggle_pos_selector")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = browserTogglePosition,
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    positions.forEach { pos ->
+                        DropdownMenuItem(
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    positionIcons[pos]?.let {
+                                        Icon(
+                                            imageVector = it,
+                                            contentDescription = null,
+                                            tint = if (pos == browserTogglePosition) MaterialTheme.colorScheme.primary
+                                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = pos,
+                                        fontWeight = if (pos == browserTogglePosition) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (pos == browserTogglePosition) MaterialTheme.colorScheme.primary
+                                               else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (pos == browserTogglePosition) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            },
+                            onClick = {
+                                onPositionSelected(pos)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun SettingsToggleRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    tag: String
+) {
+    SettingsRow(
+        icon = icon,
+        iconTint = iconTint,
+        title = title,
+        subtitle = subtitle,
+        trailing = {
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                modifier = Modifier.testTag(tag)
+            )
+        }
+    )
+}
+
+@Composable
+private fun DownloadPathRow(
+    downloadFolderPath: String,
+    onPickFolder: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .clickable { onPickFolder() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF4CAF50).copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Folder,
+                contentDescription = null,
+                tint = Color(0xFF4CAF50).copy(alpha = 0.9f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Storage Path",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = downloadFolderPath,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        ) {
+            Box(modifier = Modifier.padding(8.dp)) {
                 Icon(
                     imageVector = Icons.Default.Edit,
                     contentDescription = "Change path",
@@ -343,154 +841,171 @@ fun SettingsTab(
                     modifier = Modifier.size(18.dp)
                 )
             }
-
-            // Max downloads count
-            Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                Row {
-                    Icon(Icons.Default.SlowMotionVideo, contentDescription = null, tint = Color.Gray)
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text("Max Parallel Downloads: $maxActiveDownloads", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                        Text("Limit concurrent background thread downloader tasks", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                    }
-                }
-                Slider(
-                    value = maxActiveDownloads.toFloat(),
-                    onValueChange = { viewModel.maxActiveDownloads.value = it.toInt() },
-                    valueRange = 1f..5f,
-                    steps = 3,
-                    modifier = Modifier.fillMaxWidth().testTag("max_downloads_slider")
-                )
-            }
-
-            HorizontalDivider()
-
-            // Section 3: Browser Privacy
-            SettingsSectionHeader(title = "Browser Security & Privacy")
-
-            SettingsToggleRow(
-                icon = Icons.Default.Https,
-                title = "HTTPS-Only Protocol",
-                subtitle = "Enforce secure connections across browser navigation endpoints",
-                checked = isHttpsOnly,
-                onCheckedChange = { viewModel.isHttpsOnly.value = it },
-                tag = "https_only_switch"
-            )
-
-            SettingsToggleRow(
-                icon = Icons.Default.Shield,
-                title = "Tracker and Ad Blocking",
-                subtitle = "Prevent malicious telemetry scripts from scanning connection metadata",
-                checked = isTrackerBlocking,
-                onCheckedChange = { viewModel.isTrackerBlocking.value = it },
-                tag = "tracker_block_switch"
-            )
-
-            SettingsToggleRow(
-                icon = Icons.Default.DarkMode,
-                title = "Force Dark Mode for Web",
-                subtitle = "Attempts to render all websites in dark theme automatically",
-                checked = isForceDarkWeb,
-                onCheckedChange = { viewModel.isForceDarkWeb.value = it },
-                tag = "force_dark_web_switch"
-            )
-
-            HorizontalDivider()
-
-            // Section 5: Vault & Security reset
-            SettingsSectionHeader(title = "Privacy Vault Security")
-            
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        viewModel.resetVault()
-                        Toast.makeText(context, "Vault successfully wiped and reset", Toast.LENGTH_SHORT).show()
-                    }
-                    .padding(vertical = 8.dp)
-                    .testTag("reset_vault_row"),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.LockReset, contentDescription = null, tint = Color.Red)
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text("Reset Secure Private Vault", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = Color.Red)
-                    Text("Clear recovery passwords, security hint and reset folder access", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                }
-            }
-
-            HorizontalDivider()
-
-            // Section 6: About
-            SettingsSectionHeader(title = "About")
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onNavigateToAbout() }
-                    .padding(vertical = 8.dp)
-                    .testTag("about_row"),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text("About NexLoad", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                    Text("App info, features, technology & credits", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                }
-                Spacer(modifier = Modifier.weight(1f))
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }
 
 @Composable
-fun SettingsSectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.primary,
-        fontWeight = FontWeight.Bold,
-        modifier = Modifier.padding(top = 8.dp)
-    )
+private fun MaxDownloadsRow(
+    maxActiveDownloads: Int,
+    onValueChange: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF9C27B0).copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SlowMotionVideo,
+                    contentDescription = null,
+                    tint = Color(0xFF9C27B0).copy(alpha = 0.9f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Column {
+                Text(
+                    text = "Parallel Downloads: $maxActiveDownloads",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Limit concurrent background downloaders",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "1",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+            Slider(
+                value = maxActiveDownloads.toFloat(),
+                onValueChange = { onValueChange(it.toInt()) },
+                valueRange = 1f..5f,
+                steps = 3,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("max_downloads_slider")
+            )
+            Text(
+                text = "5",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+            ) {
+                Text(
+                    text = "$maxActiveDownloads",
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
 }
 
 @Composable
-fun SettingsToggleRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    tag: String
-) {
+private fun ResetVaultRow(onReset: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+            .heightIn(min = 52.dp)
+            .clickable { onReset() }
+            .testTag("reset_vault_row"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(modifier = Modifier.weight(1f)) {
-            Icon(icon, contentDescription = null, tint = Color.Gray)
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-            }
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFF44336).copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.LockReset,
+                contentDescription = null,
+                tint = Color(0xFFF44336).copy(alpha = 0.9f),
+                modifier = Modifier.size(20.dp)
+            )
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier.testTag(tag)
+        Column {
+            Text(
+                text = "Reset Secure Vault",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = Color(0xFFF44336)
+            )
+            Text(
+                text = "Clear password, hint, and vault access",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun AboutRow(onNavigateToAbout: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .clickable { onNavigateToAbout() }
+            .testTag("about_row"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "About NexLoad",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "App info, features, technology & credits",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.size(22.dp)
         )
     }
 }

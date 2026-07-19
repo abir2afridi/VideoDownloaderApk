@@ -41,10 +41,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.data.browser.AdBlocker
-import com.example.ui.screens.browser.BrowserPrivacyScreen
-import com.example.ui.screens.browser.BrowserSearchSettingsScreen
-import com.example.ui.screens.browser.BrowserContentSettingsScreen
-import com.example.ui.screens.browser.BrowserHomepageSettingsScreen
 import com.example.ui.viewmodel.MainViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -85,12 +81,6 @@ fun BrowserTab(viewModel: MainViewModel) {
     var showMediaSheet by remember { mutableStateOf(false) }
     var showHistorySheet by remember { mutableStateOf(false) }
     var showTabGallerySheet by remember { mutableStateOf(false) }
-    // Settings screens navigation
-    var showPrivacyScreen by remember { mutableStateOf(false) }
-    var showSearchScreen by remember { mutableStateOf(false) }
-    var showContentScreen by remember { mutableStateOf(false) }
-    var showHomepageScreen by remember { mutableStateOf(false) }
-
     // WebView instances per tab (one WebView per tab ID)
     val webViewInstances = remember { mutableMapOf<String, WebView>() }
 
@@ -397,27 +387,6 @@ fun BrowserTab(viewModel: MainViewModel) {
                                         showOverflow = false
                                     }
                                 )
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                                DropdownMenuItem(
-                                    text = { Text("Privacy & Security") },
-                                    leadingIcon = { Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF43A047)) },
-                                    onClick = { showPrivacyScreen = true; showOverflow = false }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Search Settings") },
-                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF1E88E5)) },
-                                    onClick = { showSearchScreen = true; showOverflow = false }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Content") },
-                                    leadingIcon = { Icon(Icons.Default.Tune, contentDescription = null, tint = Color(0xFF8E24AA)) },
-                                    onClick = { showContentScreen = true; showOverflow = false }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Homepage") },
-                                    leadingIcon = { Icon(Icons.Default.Home, contentDescription = null, tint = Color(0xFFE65100)) },
-                                    onClick = { showHomepageScreen = true; showOverflow = false }
-                                )
                             }
                         }
                     }
@@ -549,31 +518,6 @@ fun BrowserTab(viewModel: MainViewModel) {
             )
         }
 
-        // ── SETTINGS SCREEN OVERLAYS ──────────────────────────────────────────
-        if (showPrivacyScreen) {
-            BrowserPrivacyScreen(
-                viewModel = viewModel,
-                onBack = { showPrivacyScreen = false }
-            )
-        }
-        if (showSearchScreen) {
-            BrowserSearchSettingsScreen(
-                viewModel = viewModel,
-                onBack = { showSearchScreen = false }
-            )
-        }
-        if (showContentScreen) {
-            BrowserContentSettingsScreen(
-                viewModel = viewModel,
-                onBack = { showContentScreen = false }
-            )
-        }
-        if (showHomepageScreen) {
-            BrowserHomepageSettingsScreen(
-                viewModel = viewModel,
-                onBack = { showHomepageScreen = false }
-            )
-        }
         // ===================== BOOKMARKS SHEET =====================
         if (showBookmarksSheet) {
             ModalBottomSheet(
