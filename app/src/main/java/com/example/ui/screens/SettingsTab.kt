@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -42,7 +43,8 @@ import com.example.ui.screens.browser.BrowserHomepageSettingsScreen
 @Composable
 fun SettingsTab(
     viewModel: MainViewModel,
-    onNavigateToAbout: () -> Unit
+    onNavigateToAbout: () -> Unit,
+    onNavigateToHome: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -62,6 +64,16 @@ fun SettingsTab(
     var showSearchScreen by remember { mutableStateOf(false) }
     var showContentScreen by remember { mutableStateOf(false) }
     var showHomepageScreen by remember { mutableStateOf(false) }
+
+    BackHandler {
+        when {
+            showPrivacyScreen -> showPrivacyScreen = false
+            showSearchScreen -> showSearchScreen = false
+            showContentScreen -> showContentScreen = false
+            showHomepageScreen -> showHomepageScreen = false
+            else -> onNavigateToHome()
+        }
+    }
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree(),

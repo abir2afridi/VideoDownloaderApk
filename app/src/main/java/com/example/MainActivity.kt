@@ -87,11 +87,6 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Back gesture: navigate to Home first, exit only from Home
-                BackHandler(enabled = currentTab != "Home") {
-                    currentTab = "Home"
-                }
-
                 Box(modifier = Modifier.fillMaxSize()) {
                     // Content Area
                     Box(
@@ -102,9 +97,17 @@ class MainActivity : ComponentActivity() {
                             "Browser" -> BrowserTab(viewModel)
                             "Downloads" -> DownloadsTab(viewModel)
                             "Vault" -> VaultTab(viewModel)
-                            "Settings" -> SettingsTab(viewModel, onNavigateToAbout = { currentTab = "About" })
+                            "Settings" -> SettingsTab(
+                                viewModel = viewModel,
+                                onNavigateToAbout = { currentTab = "About" },
+                                onNavigateToHome = { currentTab = "Home" }
+                            )
                             "About" -> AboutTab(onBack = { currentTab = "Settings" })
                         }
+                    }
+                    // Fallback: back to Home from any tab that doesn't handle back itself
+                    BackHandler(enabled = currentTab != "Home") {
+                        currentTab = "Home"
                     }
 
                     // Floating Bottom Bar with Animation
