@@ -614,47 +614,78 @@ private fun AccentColorRow(
     )
 
     if (showColorPicker) {
-        AlertDialog(
-            onDismissRequest = { showColorPicker = false },
-            shape = RoundedCornerShape(24.dp),
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                    }
-                    Text("Pick Accent Color", fontWeight = FontWeight.ExtraBold)
-                }
+        ColorPickerDialog(
+            accentColors = accentColors,
+            selectedAccentColor = selectedAccentColor,
+            currentPrimary = MaterialTheme.colorScheme.primary,
+            onColorSelected = { color ->
+                onColorSelected(color)
+                showColorPicker = false
             },
-            text = {
+            onDismiss = { showColorPicker = false }
+        )
+    }
+}
+
+@Composable
+private fun ColorPickerDialog(
+    accentColors: List<Pair<String, Color?>>,
+    selectedAccentColor: String,
+    currentPrimary: Color,
+    onColorSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var hue by remember { mutableFloatStateOf(0f) }
+    var sat by remember { mutableFloatStateOf(0f) }
+    var value by remember { mutableFloatStateOf(1f) }
+    var hexInput by remember { mutableStateOf("#") }
+    var showCustomPicker by remember { mutableStateOf(false) }
+
+    val customColor = Color.hsv(hue, sat, value)
+    val customHex = formatHexColor(customColor)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(currentPrimary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Palette, contentDescription = null, tint = currentPrimary, modifier = Modifier.size(16.dp))
+                }
+                Text("Pick Accent Color", fontWeight = FontWeight.ExtraBold)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Preset swatches
                 androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
                     columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
-                    contentPadding = PaddingValues(8.dp),
+                    contentPadding = PaddingValues(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.height(120.dp)
                 ) {
                     items(accentColors.size) { index ->
                         val (name, color) = accentColors[index]
                         val isSelected = selectedAccentColor == name
-
                         Box(
                             modifier = Modifier
                                 .aspectRatio(1f)
                                 .clip(CircleShape)
                                 .background(color ?: BentoPrimary)
-                                .clickable {
-                                    onColorSelected(name)
-                                    showColorPicker = false
-                                }
+                                .clickable { onColorSelected(name) }
                                 .border(
                                     width = if (isSelected) 3.dp else 0.dp,
                                     color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
@@ -671,14 +702,222 @@ private fun AccentColorRow(
                         }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = { showColorPicker = false }) {
+
+                // Custom color divider & toggle
+                HorizontalDivider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                )
+
+                Surface(
+                    onClick = { showCustomPicker = !showCustomPicker },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (showCustomPicker) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                           else Color.Transparent
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(customColor)
+                        )
+                        Text(
+                            text = if (showCustomPicker) "Hide Custom Color Picker" else "Pick Custom Color",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = if (showCustomPicker) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                // Custom color picker
+                if (showCustomPicker) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Color preview
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(customColor),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = customHex,
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (customColor.let { c ->
+                                        val r = c.red * 0.299f + c.green * 0.587f + c.blue * 0.114f
+                                        r > 0.5f
+                                    }) Color.Black else Color.White
+                                )
+                            )
+                        }
+
+                        // Hue slider
+                        ColorSlider(
+                            label = "Hue",
+                            value = hue,
+                            onValueChange = { hue = it },
+                            valueRange = 0f..360f,
+                            trackColors = (0..360 step 60).map { Color.hsv(it.toFloat(), 1f, 1f) }
+                        )
+
+                        // Saturation slider
+                        ColorSlider(
+                            label = "Saturation",
+                            value = sat,
+                            onValueChange = { sat = it },
+                            valueRange = 0f..1f,
+                            trackColors = listOf(Color.hsv(hue, 0f, value), Color.hsv(hue, 1f, value))
+                        )
+
+                        // Value slider
+                        ColorSlider(
+                            label = "Value",
+                            value = value,
+                            onValueChange = { value = it },
+                            valueRange = 0f..1f,
+                            trackColors = listOf(Color.Black, Color.hsv(hue, sat, 1f))
+                        )
+
+                        // Hex input
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = hexInput,
+                                onValueChange = { input ->
+                                    val filtered = input.take(7).filter { c -> c in "0123456789abcdefABCDEF#" }
+                                    if (filtered.length <= 7 && (filtered.isEmpty() || filtered.startsWith("#"))) {
+                                        hexInput = if (filtered == "#") "#" else filtered
+                                    }
+                                },
+                                label = { Text("Hex") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Button(
+                                onClick = {
+                                    val hex = hexInput.trim()
+                                    if (hex.matches(Regex("^#[0-9A-Fa-f]{6}$"))) {
+                                        try {
+                                            val c = Color(android.graphics.Color.parseColor(hex))
+                                            val hsvFloat = FloatArray(3)
+                                            android.graphics.Color.colorToHSV(
+                                                android.graphics.Color.rgb(
+                                                    (c.red * 255).toInt(),
+                                                    (c.green * 255).toInt(),
+                                                    (c.blue * 255).toInt()
+                                                ), hsvFloat
+                                            )
+                                            hue = hsvFloat[0]
+                                            sat = hsvFloat[1]
+                                            value = hsvFloat[2]
+                                        } catch (_: Exception) {}
+                                    }
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                enabled = hexInput.matches(Regex("^#[0-9A-Fa-f]{6}$"))
+                            ) {
+                                Text("Apply", fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (showCustomPicker) {
+                    OutlinedButton(
+                        onClick = { onColorSelected(customHex) },
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Use Custom", fontWeight = FontWeight.Bold)
+                    }
+                }
+                TextButton(onClick = onDismiss) {
                     Text("Close", fontWeight = FontWeight.Bold)
                 }
             }
+        }
+    )
+}
+
+@Composable
+private fun ColorSlider(
+    label: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    trackColors: List<Color>
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = when (label) {
+                    "Hue" -> "${value.toInt()}°"
+                    "Saturation" -> "${(value * 100).toInt()}%"
+                    "Value" -> "${(value * 100).toInt()}%"
+                    else -> ""
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            colors = SliderDefaults.colors(
+                thumbColor = Color.hsv(
+                    if (label == "Hue") value else 0f,
+                    if (label == "Saturation") value else 1f,
+                    if (label == "Value") value else 1f
+                ),
+                activeTrackColor = MaterialTheme.colorScheme.primary
+            ),
+            modifier = Modifier.fillMaxWidth()
         )
     }
+}
+
+private fun formatHexColor(color: Color): String {
+    val r = (color.red * 255).toInt().coerceIn(0, 255)
+    val g = (color.green * 255).toInt().coerceIn(0, 255)
+    val b = (color.blue * 255).toInt().coerceIn(0, 255)
+    return "#%02X%02X%02X".format(r, g, b)
 }
 
 @Composable

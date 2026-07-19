@@ -39,6 +39,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.airbnb.lottie.compose.LottieAnimation
+import com.airbnb.lottie.compose.LottieCompositionSpec
+import com.airbnb.lottie.compose.LottieConstants
+import com.airbnb.lottie.compose.rememberLottieComposition
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
 import com.example.data.download.VideoExtractor
@@ -298,12 +302,11 @@ fun DashboardTab(
                     // Theme toggle icon
                     val themeIcon = when (selectedThemeMode) {
                         "Light" -> Icons.Default.LightMode
-                        "Dark" -> Icons.Default.DarkMode
-                        else -> Icons.Default.BrightnessAuto
+                        else -> Icons.Default.DarkMode
                     }
                     Surface(
                         onClick = {
-                            val modes = listOf("System", "Light", "Dark")
+                            val modes = listOf("Light", "Dark")
                             val next = (modes.indexOf(selectedThemeMode) + 1) % modes.size
                             viewModel.selectedThemeMode.value = modes[next]
                         },
@@ -467,31 +470,46 @@ fun DashboardTab(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Text(
-                                text = "STREAMS",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 1.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            val streamsComposition by rememberLottieComposition(
+                                LottieCompositionSpec.Url("https://lottie.host/8e608e9f-4901-4a46-8b78-c0e8e7f405b1/pkJfgyQ1ub.lottie")
                             )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = if (activeTasksCount > 0) {
-                                    val speedText = MediaUtils.formatSpeed(totalSpeed)
-                                    val timeText = if (totalRemainingTime != null) " • $totalRemainingTime" else ""
-                                    "Downloading • $speedText$timeText"
-                                } else if (detectedPlatform != null) {
-                                    "${detectedPlatform.name} Video Detected"
-                                } else {
-                                    "Ready to Download"
-                                },
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
+                            LottieAnimation(
+                                composition = streamsComposition,
+                                iterations = LottieConstants.IterateForever,
+                                speed = 1f,
+                                modifier = Modifier.size(56.dp)
                             )
+
+                            Column {
+                                Text(
+                                    text = "STREAMS",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (activeTasksCount > 0) {
+                                        val speedText = MediaUtils.formatSpeed(totalSpeed)
+                                        val timeText = if (totalRemainingTime != null) " • $totalRemainingTime" else ""
+                                        "Downloading • $speedText$timeText"
+                                    } else if (detectedPlatform != null) {
+                                        "${detectedPlatform.name} Video Detected"
+                                    } else {
+                                        "Ready to Download"
+                                    },
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
                         }
 
                         // Show favicon when platform detected, otherwise cloud icon

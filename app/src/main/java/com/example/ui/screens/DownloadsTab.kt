@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
@@ -58,6 +59,11 @@ fun DownloadsTab(viewModel: MainViewModel) {
 
     val tabTitles = listOf("Downloads", "Files")
     val pagerState = rememberPagerState(pageCount = { tabTitles.size })
+
+    // Back: Files inner tab → Downloads inner tab → app Home
+    BackHandler(enabled = pagerState.currentPage == 1) {
+        scope.launch { pagerState.animateScrollToPage(0) }
+    }
 
     // Downloads selection
     var isDownloadsSelectionMode by remember { mutableStateOf(false) }
@@ -184,12 +190,11 @@ fun DownloadsTab(viewModel: MainViewModel) {
 
                             val themeIcon = when (viewModel.selectedThemeMode.collectAsState().value) {
                                 "Light" -> Icons.Default.LightMode
-                                "Dark" -> Icons.Default.DarkMode
-                                else -> Icons.Default.BrightnessAuto
+                                else -> Icons.Default.DarkMode
                             }
                             Surface(
                                 onClick = {
-                                    val modes = listOf("System", "Light", "Dark")
+                                    val modes = listOf("Light", "Dark")
                                     val current = viewModel.selectedThemeMode.value
                                     val next = (modes.indexOf(current) + 1) % modes.size
                                     viewModel.selectedThemeMode.value = modes[next]
