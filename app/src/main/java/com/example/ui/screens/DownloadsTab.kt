@@ -262,25 +262,7 @@ fun DownloadsTab(viewModel: MainViewModel, onNavigateToHome: () -> Unit = {}) {
                                 }
                             }
 
-                            if (pagerState.currentPage == 0) {
-                                Surface(
-                                    onClick = {
-                                        viewModel.runImmediateIntegrityCheck()
-                                        Toast.makeText(context, "Verifying streams...", Toast.LENGTH_SHORT).show()
-                                    },
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                    shape = CircleShape
-                                ) {
-                                    Box(modifier = Modifier.padding(10.dp)) {
-                                        Icon(
-                                            imageVector = Icons.Default.HealthAndSafety,
-                                            contentDescription = "Verify All",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-                            }
+
                         }
                     }
                 }

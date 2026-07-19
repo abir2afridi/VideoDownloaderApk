@@ -1,43 +1,55 @@
 package com.example.ui.screens
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Environment
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.window.Dialog
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.viewmodel.MainViewModel
-import java.io.File
-import android.content.Intent
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.CircleShape
-import com.example.ui.theme.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.ui.text.style.TextAlign
-import com.example.ui.screens.browser.BrowserPrivacyScreen
-import com.example.ui.screens.browser.BrowserSearchSettingsScreen
+import androidx.compose.ui.window.DialogProperties
 import com.example.ui.screens.browser.BrowserContentSettingsScreen
 import com.example.ui.screens.browser.BrowserHomepageSettingsScreen
+import com.example.ui.screens.browser.BrowserPrivacyScreen
+import com.example.ui.screens.browser.BrowserSearchSettingsScreen
+import com.example.ui.theme.*
+import com.example.ui.viewmodel.MainViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -663,6 +675,124 @@ private fun AccentColorRow(
 }
 
 @Composable
+private fun SaturationValuePicker(
+    hue: Float,
+    saturation: Float,
+    value: Float,
+    onColorChange: (Float, Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(180.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .pointerInput(hue) {
+                detectDragGestures { change, _ ->
+                    change.consume()
+                    val s = (change.position.x / size.width).coerceIn(0f, 1f)
+                    val v = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
+                    onColorChange(s, v)
+                }
+            }
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            // Hue background
+            drawRect(color = Color.hsv(hue, 1f, 1f))
+            
+            // White to transparent horizontal gradient
+            drawRect(
+                brush = Brush.horizontalGradient(
+                    colors = listOf(Color.White, Color.Transparent)
+                )
+            )
+            
+            // Transparent to black vertical gradient
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.Transparent, Color.Black)
+                )
+            )
+            
+            val x = saturation * size.width
+            val y = (1f - value) * size.height
+            
+            // Pointer
+            drawCircle(
+                color = Color.Black.copy(alpha = 0.15f),
+                radius = 12.dp.toPx(),
+                center = Offset(x, y)
+            )
+            drawCircle(
+                color = Color.White,
+                radius = 10.dp.toPx(),
+                center = Offset(x, y),
+                style = Stroke(width = 2.5.dp.toPx())
+            )
+            drawCircle(
+                color = Color.hsv(hue, saturation, value),
+                radius = 8.dp.toPx(),
+                center = Offset(x, y)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HueSlider(
+    hue: Float,
+    onHueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Hue", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("${hue.toInt()}°", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = MaterialTheme.colorScheme.onSurface)
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(20.dp)
+                .clip(CircleShape)
+                .pointerInput(Unit) {
+                    detectDragGestures { change, _ ->
+                        change.consume()
+                        val h = (change.position.x / size.width).coerceIn(0f, 1f) * 360f
+                        onHueChange(h)
+                    }
+                }
+        ) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val hueColors = listOf(
+                    Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red
+                )
+                drawRoundRect(
+                    brush = Brush.horizontalGradient(hueColors),
+                    cornerRadius = CornerRadius(10.dp.toPx())
+                )
+                
+                val x = (hue / 360f) * size.width
+                drawCircle(
+                    color = Color.White,
+                    radius = 10.dp.toPx(),
+                    center = Offset(x, size.height / 2),
+                    style = Stroke(width = 2.5.dp.toPx())
+                )
+                drawCircle(
+                    color = Color.hsv(hue, 1f, 1f),
+                    radius = 7.dp.toPx(),
+                    center = Offset(x, size.height / 2)
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
 private fun ColorPickerDialog(
     accentColors: List<Pair<String, Color?>>,
     selectedAccentColor: String,
@@ -676,291 +806,221 @@ private fun ColorPickerDialog(
     var sat by remember { mutableFloatStateOf(0f) }
     var value by remember { mutableFloatStateOf(1f) }
     var hexInput by remember { mutableStateOf("#") }
-    var showCustomPicker by remember { mutableStateOf(false) }
 
     val customColor = Color.hsv(hue, sat, value)
     val customHex = formatHexColor(customColor)
 
-    AlertDialog(
+    // Sync hex input when color changes
+    LaunchedEffect(customHex) {
+        if (!hexInput.startsWith("#") || hexInput.length != 7) {
+            hexInput = customHex
+        }
+    }
+
+    Dialog(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(24.dp),
-        title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(currentPrimary.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Palette, contentDescription = null, tint = currentPrimary, modifier = Modifier.size(16.dp))
-                }
-                Text(title, fontWeight = FontWeight.ExtraBold)
-            }
-        },
-        text = {
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+            shadowElevation = 12.dp
+        ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.padding(bottom = 0.dp)
             ) {
-                // Preset swatches
-                val allSwatches = if (showDefault) {
-                    listOf("Default" to null as Color?) + accentColors
-                } else accentColors
-                androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
-                    columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(4),
-                    contentPadding = PaddingValues(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.height(if (showDefault) 156.dp else 120.dp)
-                ) {
-                    items(allSwatches.size) { index ->
-                        val (name, color) = allSwatches[index]
-                        val isSelected = selectedAccentColor == name
-                        Box(
-                            modifier = Modifier
-                                .aspectRatio(1f)
-                                .clip(CircleShape)
-                                .background(
-                                    when {
-                                        color != null -> color
-                                        name == "Default" -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                                        else -> BentoPrimary
-                                    }
-                                )
-                                .clickable { onColorSelected(name) }
-                                .border(
-                                    width = if (isSelected) 3.dp else 0.dp,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isSelected) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = if (name == "Default") MaterialTheme.colorScheme.onSurface else Color.White, modifier = Modifier.size(24.dp))
-                            }
-                            if (name == "Bento" && !isSelected) {
-                                Text("B", color = Color.White, fontWeight = FontWeight.Bold)
-                            }
-                            if (name == "Default" && !isSelected) {
-                                Text("A", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                            }
-                        }
-                    }
-                }
-
-                // Custom color divider & toggle
-                HorizontalDivider(
-                    thickness = 0.5.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
-                )
-
-                Surface(
-                    onClick = { showCustomPicker = !showCustomPicker },
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (showCustomPicker) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                           else Color.Transparent
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(24.dp)
-                                .clip(CircleShape)
-                                .background(customColor)
-                        )
-                        Text(
-                            text = if (showCustomPicker) "Hide Custom Color Picker" else "Pick Custom Color",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Icon(
-                            imageVector = if (showCustomPicker) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
+                                .size(32.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(currentPrimary.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Palette, null, tint = currentPrimary, modifier = Modifier.size(18.dp))
+                        }
+                        Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
-                // Custom color picker
-                if (showCustomPicker) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Color preview
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(customColor),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = customHex,
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (customColor.let { c ->
-                                        val r = c.red * 0.299f + c.green * 0.587f + c.blue * 0.114f
-                                        r > 0.5f
-                                    }) Color.Black else Color.White
-                                )
-                            )
-                        }
-
-                        // Hue slider
-                        ColorSlider(
-                            label = "Hue",
-                            value = hue,
-                            onValueChange = { hue = it },
-                            valueRange = 0f..360f,
-                            trackColors = (0..360 step 60).map { Color.hsv(it.toFloat(), 1f, 1f) }
-                        )
-
-                        // Saturation slider
-                        ColorSlider(
-                            label = "Saturation",
-                            value = sat,
-                            onValueChange = { sat = it },
-                            valueRange = 0f..1f,
-                            trackColors = listOf(Color.hsv(hue, 0f, value), Color.hsv(hue, 1f, value))
-                        )
-
-                        // Value slider
-                        ColorSlider(
-                            label = "Value",
-                            value = value,
-                            onValueChange = { value = it },
-                            valueRange = 0f..1f,
-                            trackColors = listOf(Color.Black, Color.hsv(hue, sat, 1f))
-                        )
-
-                        // Hex input
+                // Scrollable content
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Presets
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            OutlinedTextField(
-                                value = hexInput,
-                                onValueChange = { input ->
-                                    val filtered = input.take(7).filter { c -> c in "0123456789abcdefABCDEF#" }
-                                    if (filtered.length <= 7 && (filtered.isEmpty() || filtered.startsWith("#"))) {
-                                        hexInput = if (filtered == "#") "#" else filtered
+                            Icon(Icons.Default.Favorite, null, tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f), modifier = Modifier.size(14.dp))
+                            Text("Presets", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                        }
+                        
+                        val allSwatches = if (showDefault) {
+                            listOf("Default" to null as Color?) + accentColors
+                        } else accentColors
+                        
+                        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+                            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(5),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.height(if (allSwatches.size > 5) 90.dp else 44.dp)
+                        ) {
+                            items(allSwatches.size) { index ->
+                                val (name, color) = allSwatches[index]
+                                val isSelected = selectedAccentColor == name
+                                val swatchColor = when {
+                                    color != null -> color
+                                    name == "Default" -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                                    else -> BentoPrimary
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(swatchColor)
+                                        .clickable { onColorSelected(name) }
+                                        .border(
+                                            width = if (isSelected) 2.5.dp else 0.dp,
+                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                            shape = CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Icon(Icons.Default.Check, null, tint = if (swatchColor.let { it.red * 0.299f + it.green * 0.587f + it.blue * 0.114f > 0.5f }) Color.Black else Color.White, modifier = Modifier.size(20.dp))
                                     }
-                                },
-                                label = { Text("Hex") },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f),
-                                textStyle = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Button(
-                                onClick = {
-                                    val hex = hexInput.trim()
-                                    if (hex.matches(Regex("^#[0-9A-Fa-f]{6}$"))) {
-                                        try {
-                                            val c = Color(android.graphics.Color.parseColor(hex))
-                                            val hsvFloat = FloatArray(3)
-                                            android.graphics.Color.colorToHSV(
-                                                android.graphics.Color.rgb(
-                                                    (c.red * 255).toInt(),
-                                                    (c.green * 255).toInt(),
-                                                    (c.blue * 255).toInt()
-                                                ), hsvFloat
-                                            )
-                                            hue = hsvFloat[0]
-                                            sat = hsvFloat[1]
-                                            value = hsvFloat[2]
-                                        } catch (_: Exception) {}
-                                    }
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                enabled = hexInput.matches(Regex("^#[0-9A-Fa-f]{6}$"))
-                            ) {
-                                Text("Apply", fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                     }
-                }
-            }
-        },
-        confirmButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (showCustomPicker) {
-                    OutlinedButton(
-                        onClick = { onColorSelected(customHex) },
-                        shape = RoundedCornerShape(12.dp)
+
+                    // Color preview bar
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(customColor),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text("Use Custom", fontWeight = FontWeight.Bold)
+                        Text(
+                            text = customHex,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (customColor.let { c ->
+                                    c.red * 0.299f + c.green * 0.587f + c.blue * 0.114f > 0.5f
+                                }) Color.Black else Color.White
+                            )
+                        )
+                    }
+
+                    // SV Square
+                    SaturationValuePicker(
+                        hue = hue, saturation = sat, value = value,
+                        onColorChange = { s, v -> sat = s; value = v }
+                    )
+
+                    // Hue Slider
+                    HueSlider(
+                        hue = hue,
+                        onHueChange = { h -> hue = h }
+                    )
+
+                    // Hex Input Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = hexInput,
+                            onValueChange = { input ->
+                                if (input.length <= 7) hexInput = input.uppercase()
+                            },
+                            label = { Text("Hex", style = MaterialTheme.typography.labelSmall) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                        )
+                        Button(
+                            onClick = {
+                                try {
+                                    val c = Color(android.graphics.Color.parseColor(if (hexInput.startsWith("#")) hexInput else "#$hexInput"))
+                                    val hsv = FloatArray(3)
+                                    android.graphics.Color.colorToHSV(android.graphics.Color.rgb((c.red*255).toInt(), (c.green*255).toInt(), (c.blue*255).toInt()), hsv)
+                                    hue = hsv[0]; sat = hsv[1]; value = hsv[2]
+                                } catch (_: Exception) {}
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.height(52.dp)
+                        ) {
+                            Text("Apply", style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                // Bottom bar
+                Surface(
+                    tonalElevation = 2.dp,
+                    shadowElevation = 4.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Close")
+                        }
+                        Button(
+                            onClick = { onColorSelected(customHex) },
+                            modifier = Modifier.weight(1.2f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Check, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Apply", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
-                TextButton(onClick = onDismiss) {
-                    Text("Close", fontWeight = FontWeight.Bold)
-                }
             }
         }
-    )
-}
-
-@Composable
-private fun ColorSlider(
-    label: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
-    trackColors: List<Color>
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = when (label) {
-                    "Hue" -> "${value.toInt()}°"
-                    "Saturation" -> "${(value * 100).toInt()}%"
-                    "Value" -> "${(value * 100).toInt()}%"
-                    else -> ""
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            colors = SliderDefaults.colors(
-                thumbColor = Color.hsv(
-                    if (label == "Hue") value else 0f,
-                    if (label == "Saturation") value else 1f,
-                    if (label == "Value") value else 1f
-                ),
-                activeTrackColor = MaterialTheme.colorScheme.primary
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }
+
+
+
 
 private fun formatHexColor(color: Color): String {
     val r = (color.red * 255).toInt().coerceIn(0, 255)
