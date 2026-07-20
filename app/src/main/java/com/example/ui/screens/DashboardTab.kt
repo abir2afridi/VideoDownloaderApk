@@ -266,116 +266,117 @@ fun DashboardTab(
         }
     }
 
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp)
     ) {
-        // 1. MINIMALIST GREETING HEADER
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Image(
-                                painter = painterResource(id = R.drawable.nexload_logo),
-                                contentDescription = "NexLoad",
-                                modifier = Modifier.width(40.dp).height(32.dp)
-                            )
-                            Text(
-                                text = "NEXLOAD",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 2.5.sp,
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
-                                )
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = greeting,
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = (-1).sp,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                        )
-                }
-
+        // Fixed header (non-scrolling)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // Theme toggle icon
-                    val themeIcon = when (selectedThemeMode) {
-                        "Light" -> Icons.Default.LightMode
-                        else -> Icons.Default.DarkMode
-                    }
-                    Surface(
-                        onClick = {
-                            val modes = listOf("Light", "Dark")
-                            val next = (modes.indexOf(selectedThemeMode) + 1) % modes.size
-                            viewModel.selectedThemeMode.value = modes[next]
-                        },
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = CircleShape
-                    ) {
-                        Box(modifier = Modifier.padding(10.dp)) {
-                            Icon(
-                                imageVector = themeIcon,
-                                contentDescription = "Toggle theme",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
+                    Image(
+                        painter = painterResource(id = R.drawable.nexload_logo),
+                        contentDescription = "NexLoad",
+                        modifier = Modifier.width(40.dp).height(32.dp)
+                    )
+                    Text(
+                        text = "NEXLOAD",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 2.5.sp,
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                        )
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = greeting,
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-1).sp,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                )
+            }
 
-                    // Super Clean Minimalist Engine Tag
-                    Surface(
-                        color = if (activeTasksCount > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(16.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                val themeIcon = when (selectedThemeMode) {
+                    "Light" -> Icons.Default.LightMode
+                    else -> Icons.Default.DarkMode
+                }
+                Surface(
+                    onClick = {
+                        val modes = listOf("Light", "Dark")
+                        val next = (modes.indexOf(selectedThemeMode) + 1) % modes.size
+                        viewModel.selectedThemeMode.value = modes[next]
+                    },
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = CircleShape
+                ) {
+                    Box(modifier = Modifier.padding(10.dp)) {
+                        Icon(
+                            imageVector = themeIcon,
+                            contentDescription = "Toggle theme",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+
+                Surface(
+                    color = if (activeTasksCount > 0) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (activeTasksCount > 0) MaterialTheme.colorScheme.primary 
-                                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                                    )
-                            )
-                            Text(
-                                text = if (activeTasksCount > 0) "ACTIVE" else "READY",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp,
-                                    letterSpacing = 0.8.sp
-                                ),
-                                color = if (activeTasksCount > 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (activeTasksCount > 0) MaterialTheme.colorScheme.primary 
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                )
+                        )
+                        Text(
+                            text = if (activeTasksCount > 0) "ACTIVE" else "READY",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                letterSpacing = 0.8.sp
+                            ),
+                            color = if (activeTasksCount > 0) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
         }
 
-        // 1.5. LIVE CLOCK & CONNECTIVITY CARD
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp)
+        ) {
+            // 1.5. LIVE CLOCK & CONNECTIVITY CARD
         item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1107,6 +1108,7 @@ fun DashboardTab(
                 }
             }
         }
+    }
     }
 
     if (showPasteLinkDialog) {

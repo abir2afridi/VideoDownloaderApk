@@ -74,7 +74,21 @@ fun MyApplicationTheme(
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
         accentColor == "Bento" -> {
-            if (darkTheme) BentoDarkColorScheme else BentoLightColorScheme
+            if (darkTheme) {
+                if (isAmoled) darkColorScheme(
+                    primary = BentoPrimary,
+                    secondary = BentoContainer,
+                    tertiary = BentoLightBlue,
+                    background = PureBlack,
+                    surface = PureBlack,
+                    onBackground = Color.White,
+                    onSurface = Color.White,
+                    primaryContainer = BentoPrimary,
+                    onPrimaryContainer = Color.White,
+                    surfaceVariant = Color(0xFF282B2E),
+                    outline = Color(0xFF3A3E42)
+                ) else BentoDarkColorScheme
+            } else BentoLightColorScheme
         }
         darkTheme -> {
             // Apply Custom Dark Accent Color
