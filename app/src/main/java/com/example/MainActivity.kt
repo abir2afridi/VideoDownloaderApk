@@ -17,6 +17,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.fadeIn
@@ -55,9 +57,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.screens.*
+import com.example.ui.screens.LoadingScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.MainViewModel
 import com.example.data.download.InstagramCookieStore
+import androidx.compose.animation.Crossfade
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
@@ -76,6 +80,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
@@ -91,6 +96,13 @@ class MainActivity : ComponentActivity() {
         }
         
         setContent {
+            var showLoadingScreen by remember { mutableStateOf(true) }
+            
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(1800) // 1.8s allows animation to finish and settle
+                showLoadingScreen = false
+            }
+
             val isAmoledMode by viewModel.isAmoledMode.collectAsState()
             val selectedAccentColor by viewModel.selectedAccentColor.collectAsState()
             val selectedThemeMode by viewModel.selectedThemeMode.collectAsState()
@@ -107,154 +119,168 @@ class MainActivity : ComponentActivity() {
                 isAmoled = isAmoledMode,
                 accentColor = selectedAccentColor
             ) {
-                var currentTab by remember { mutableStateOf("Home") }
-                var isNavCollapsed by remember { mutableStateOf(false) }
-
-                // Auto-collapse when entering Browser tab
-                LaunchedEffect(currentTab) {
-                    if (currentTab == "Browser") {
-                        isNavCollapsed = true
+                Crossfade(targetState = showLoadingScreen, label = "splash_transition") { loading ->
+                    if (loading) {
+                        LoadingScreen()
                     } else {
-                        isNavCollapsed = false
+                        MainContent(viewModel, browserTogglePosition)
                     }
                 }
+            }
+        }
+    }
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Content Area
-                    Box(
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        when (currentTab) {
-                            "Home" -> DashboardTab(viewModel, onNavigateToTab = { currentTab = it })
-                            "Browser" -> BrowserTab(viewModel)
-                            "Downloads" -> DownloadsTab(viewModel, onNavigateToHome = { currentTab = "Home" })
-                            "Vault" -> VaultTab(viewModel)
-                            "Settings" -> SettingsTab(
-                                viewModel = viewModel,
-                                onNavigateToAbout = { currentTab = "About" },
-                                onNavigateToHome = { currentTab = "Home" }
-                            )
-                            "About" -> AboutTab(onBack = { currentTab = "Settings" })
-                        }
-                    }
-                    // Fallback: back to Home from any tab that doesn't handle back itself
-                    BackHandler(enabled = currentTab != "Home") {
-                        currentTab = "Home"
-                    }
+    @Composable
+    private fun MainContent(
+        viewModel: MainViewModel,
+        browserTogglePosition: String
+    ) {
+        var currentTab by remember { mutableStateOf("Home") }
+        var isNavCollapsed by remember { mutableStateOf(false) }
 
-                    // Floating Bottom Bar with Animation
-                    if (currentTab != "About") {
-                        val navAlignment = if (isNavCollapsed && currentTab == "Browser") {
-                            when (browserTogglePosition) {
-                                "Bottom Left" -> Alignment.CenterStart
-                                "Bottom Right" -> Alignment.CenterEnd
-                                else -> Alignment.Center
+        // Auto-collapse when entering Browser tab
+        LaunchedEffect(currentTab) {
+            if (currentTab == "Browser") {
+                isNavCollapsed = true
+            } else {
+                isNavCollapsed = false
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Content Area
+            Box(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                when (currentTab) {
+                    "Home" -> DashboardTab(viewModel, onNavigateToTab = { currentTab = it })
+                    "Browser" -> BrowserTab(viewModel)
+                    "Downloads" -> DownloadsTab(viewModel, onNavigateToHome = { currentTab = "Home" })
+                    "Vault" -> VaultTab(viewModel)
+                    "Settings" -> SettingsTab(
+                        viewModel = viewModel,
+                        onNavigateToAbout = { currentTab = "About" },
+                        onNavigateToHome = { currentTab = "Home" }
+                    )
+                    "About" -> AboutTab(onBack = { currentTab = "Settings" })
+                }
+            }
+            // Fallback: back to Home from any tab that doesn't handle back itself
+            BackHandler(enabled = currentTab != "Home") {
+                currentTab = "Home"
+            }
+
+            // Floating Bottom Bar with Animation
+            if (currentTab != "About") {
+                val navAlignment = if (isNavCollapsed && currentTab == "Browser") {
+                    when (browserTogglePosition) {
+                        "Bottom Left" -> Alignment.CenterStart
+                        "Bottom Right" -> Alignment.CenterEnd
+                        else -> Alignment.Center
+                    }
+                } else {
+                    Alignment.Center
+                }
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                    contentAlignment = navAlignment
+                ) {
+                    AnimatedContent(
+                        targetState = isNavCollapsed && currentTab == "Browser",
+                        transitionSpec = {
+                            (fadeIn(animationSpec = tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)))
+                                .togetherWith(fadeOut(animationSpec = tween(90)) + scaleOut(targetScale = 0.92f, animationSpec = tween(90)))
+                        },
+                        label = "nav_collapse_animation"
+                    ) { collapsed ->
+                        if (collapsed) {
+                            // Collapsed Single Icon
+                            Surface(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { isNavCollapsed = false }
+                                    )
+                                    .testTag("nav_expand_button"),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primary,
+                                tonalElevation = 6.dp,
+                                shadowElevation = 8.dp,
+                                border = BorderStroke(2.dp, Color.White.copy(alpha = 0.2f))
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.Language,
+                                        contentDescription = "Expand Navigation",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
                             }
                         } else {
-                            Alignment.Center
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .navigationBarsPadding()
-                                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                            contentAlignment = navAlignment
-                        ) {
-                            AnimatedContent(
-                                targetState = isNavCollapsed && currentTab == "Browser",
-                                transitionSpec = {
-                                    (fadeIn(animationSpec = tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)))
-                                        .togetherWith(fadeOut(animationSpec = tween(90)) + scaleOut(targetScale = 0.92f, animationSpec = tween(90)))
-                                },
-                                label = "nav_collapse_animation"
-                            ) { collapsed ->
-                                if (collapsed) {
-                                    // Collapsed Single Icon
-                                    Surface(
-                                        modifier = Modifier
-                                            .size(56.dp)
-                                            .clickable(
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                indication = null,
-                                                onClick = { isNavCollapsed = false }
-                                            )
-                                            .testTag("nav_expand_button"),
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.primary,
-                                        tonalElevation = 6.dp,
-                                        shadowElevation = 8.dp,
-                                        border = BorderStroke(2.dp, Color.White.copy(alpha = 0.2f))
-                                    ) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(
-                                                imageVector = Icons.Default.Language,
-                                                contentDescription = "Expand Navigation",
-                                                tint = Color.White,
-                                                modifier = Modifier.size(28.dp)
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    // Full Bottom Bar
-                                    Surface(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .testTag("bottom_nav_bar"),
-                                        shape = CircleShape,
-                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
-                                        tonalElevation = 6.dp,
-                                        border = BorderStroke(
-                                            width = 0.5.dp,
-                                            color = Color.White.copy(alpha = 0.3f)
-                                        ),
-                                        shadowElevation = 12.dp
-                                    ) {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 8.dp, horizontal = 8.dp),
-                                            horizontalArrangement = Arrangement.SpaceEvenly,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            FloatingNavItem(
-                                                selected = currentTab == "Home",
-                                                onClick = { currentTab = "Home" },
-                                                filledIcon = Icons.Filled.Home,
-                                                outlinedIcon = Icons.Outlined.Home,
-                                                label = "Home",
-                                                modifier = Modifier.testTag("nav_home")
-                                            )
-                                            FloatingNavItem(
-                                                selected = currentTab == "Browser",
-                                                onClick = { 
-                                                    if (currentTab == "Browser") isNavCollapsed = true 
-                                                    else currentTab = "Browser" 
-                                                },
-                                                filledIcon = Icons.Filled.Language,
-                                                outlinedIcon = Icons.Outlined.Language,
-                                                label = "Browser",
-                                                modifier = Modifier.testTag("nav_browser")
-                                            )
-                                            FloatingNavItem(
-                                                selected = currentTab == "Downloads",
-                                                onClick = { currentTab = "Downloads" },
-                                                filledIcon = Icons.Filled.CloudDownload,
-                                                outlinedIcon = Icons.Outlined.CloudDownload,
-                                                label = "Library",
-                                                modifier = Modifier.testTag("nav_downloads")
-                                            )
-                                            FloatingNavItem(
-                                                selected = currentTab == "Settings" || currentTab == "About",
-                                                onClick = { currentTab = "Settings" },
-                                                filledIcon = Icons.Filled.Settings,
-                                                outlinedIcon = Icons.Outlined.Settings,
-                                                label = "Settings",
-                                                modifier = Modifier.testTag("nav_settings")
-                                            )
-                                        }
-                                    }
+                            // Full Bottom Bar
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("bottom_nav_bar"),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
+                                tonalElevation = 6.dp,
+                                border = BorderStroke(
+                                    width = 0.5.dp,
+                                    color = Color.White.copy(alpha = 0.3f)
+                                ),
+                                shadowElevation = 12.dp
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp, horizontal = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceEvenly,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    FloatingNavItem(
+                                        selected = currentTab == "Home",
+                                        onClick = { currentTab = "Home" },
+                                        filledIcon = Icons.Filled.Home,
+                                        outlinedIcon = Icons.Outlined.Home,
+                                        label = "Home",
+                                        modifier = Modifier.testTag("nav_home")
+                                    )
+                                    FloatingNavItem(
+                                        selected = currentTab == "Browser",
+                                        onClick = { 
+                                            if (currentTab == "Browser") isNavCollapsed = true 
+                                            else currentTab = "Browser" 
+                                        },
+                                        filledIcon = Icons.Filled.Language,
+                                        outlinedIcon = Icons.Outlined.Language,
+                                        label = "Browser",
+                                        modifier = Modifier.testTag("nav_browser")
+                                    )
+                                    FloatingNavItem(
+                                        selected = currentTab == "Downloads",
+                                        onClick = { currentTab = "Downloads" },
+                                        filledIcon = Icons.Filled.CloudDownload,
+                                        outlinedIcon = Icons.Outlined.CloudDownload,
+                                        label = "Library",
+                                        modifier = Modifier.testTag("nav_downloads")
+                                    )
+                                    FloatingNavItem(
+                                        selected = currentTab == "Settings" || currentTab == "About",
+                                        onClick = { currentTab = "Settings" },
+                                        filledIcon = Icons.Filled.Settings,
+                                        outlinedIcon = Icons.Outlined.Settings,
+                                        label = "Settings",
+                                        modifier = Modifier.testTag("nav_settings")
+                                    )
                                 }
                             }
                         }
