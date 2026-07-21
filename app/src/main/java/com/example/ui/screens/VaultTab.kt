@@ -58,6 +58,8 @@ fun VaultTab(viewModel: MainViewModel) {
     var hintInput by remember { mutableStateOf("") }
     var confirmPinInput by remember { mutableStateOf("") }
 
+    val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
+    var useBiometric by remember { mutableStateOf(false) }
     var activePlayingFilePath by remember { mutableStateOf<String?>(null) }
     var showForgotPinDialog by remember { mutableStateOf(false) }
 
@@ -181,6 +183,9 @@ fun VaultTab(viewModel: MainViewModel) {
                         onConfirmPinChange = { if (it.length <= 4) confirmPinInput = it },
                         hintInput = hintInput,
                         onHintChange = { hintInput = it },
+                        useBiometric = useBiometric,
+                        onUseBiometricChange = { useBiometric = it },
+                        isBiometricAvailable = isBiometricAvailable,
                         onSetup = {
                             if (pinInput.length != 4) {
                                 Toast.makeText(context, "PIN must be exactly 4 digits", Toast.LENGTH_SHORT).show()
@@ -189,7 +194,7 @@ fun VaultTab(viewModel: MainViewModel) {
                             } else if (hintInput.isBlank()) {
                                 Toast.makeText(context, "Please enter a PIN hint for safety", Toast.LENGTH_SHORT).show()
                             } else {
-                                viewModel.setVaultPin(pinInput, hintInput)
+                                viewModel.setVaultPin(pinInput, hintInput, useBiometric)
                                 Toast.makeText(context, "Vault Successfully Configured!", Toast.LENGTH_SHORT).show()
                                 pinInput = ""; confirmPinInput = ""; hintInput = ""
                             }
@@ -210,7 +215,7 @@ fun VaultTab(viewModel: MainViewModel) {
                             }
                         },
                         pinHint = viewModel.pinHint.collectAsState().value,
-                        isBiometricAvailable = isBiometricAvailable,
+                        isBiometricAvailable = isBiometricAvailable && isBiometricEnabled,
                         onBiometricUnlock = { biometricUnlockAction?.invoke() },
                         onForgotPin = { showForgotPinDialog = true }
                     )
@@ -342,6 +347,9 @@ private fun SetupVaultContent(
     onConfirmPinChange: (String) -> Unit,
     hintInput: String,
     onHintChange: (String) -> Unit,
+    useBiometric: Boolean,
+    onUseBiometricChange: (Boolean) -> Unit,
+    isBiometricAvailable: Boolean,
     onSetup: () -> Unit
 ) {
     Column(
@@ -376,6 +384,23 @@ private fun SetupVaultContent(
             label = { Text("Enter PIN Recovery Hint") }, singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("pin_hint_field")
         )
+
+        if (isBiometricAvailable) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Fingerprint, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Unlock with Fingerprint", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    Text("Optionally use biometric to unlock vault", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+                Switch(checked = useBiometric, onCheckedChange = onUseBiometricChange)
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onSetup, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("setup_vault_button")) {
             Text("Initialize Secure Vault")
