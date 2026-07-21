@@ -82,9 +82,20 @@ fun BrowserTab(viewModel: MainViewModel) {
     var showMediaSheet by remember { mutableStateOf(false) }
     var showHistorySheet by remember { mutableStateOf(false) }
     var showTabGallerySheet by remember { mutableStateOf(false) }
-    // Back gesture: navigate website history back, then fall through to app Home
-    BackHandler(enabled = webViewInstance?.canGoBack() == true) {
-        webViewInstance?.goBack()
+    var showHome by remember { mutableStateOf(currentUrl == "about:blank") }
+
+    // Sync showHome when active tab changes
+    LaunchedEffect(activeTabId, tabs) {
+        val activeTab = tabs.find { it.id == activeTabId }
+        showHome = activeTab?.url == "about:blank" || activeTab?.url == "https://google.com"
+    }
+    // Back gesture: navigate website history back, then show home, then fall through to app Home
+    BackHandler(enabled = !showHome) {
+        if (webViewInstance?.canGoBack() == true) {
+            webViewInstance?.goBack()
+        } else {
+            showHome = true
+        }
     }
     // WebView instances per tab (one WebView per tab ID)
     val webViewInstances = remember { mutableMapOf<String, WebView>() }
@@ -174,7 +185,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                             Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(20.dp))
                         }
                         IconButton(
-                            onClick = { webViewInstance?.loadUrl("https://google.com") },
+                            onClick = { showHome = true },
                             modifier = Modifier.size(34.dp).testTag("browser_home")
                         ) {
                             Icon(Icons.Default.Home, contentDescription = "Home", modifier = Modifier.size(20.dp))
@@ -225,6 +236,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                                                 viewModel.buildSearchUrl(destination)
                                             }
                                         } else destination
+                                        showHome = false
                                         webViewInstance?.loadUrl(destination)
                                     }
                                 }
@@ -441,6 +453,23 @@ fun BrowserTab(viewModel: MainViewModel) {
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
+            if (showHome) {
+                BrowserHomeScreen(
+                    bookmarks = bookmarks,
+                    isIncognito = isIncognito,
+                    onSearch = { query ->
+                        val searchUrl = viewModel.buildSearchUrl(query)
+                        showHome = false
+                        viewModel.updateActiveTabUrl(searchUrl)
+                        webViewInstance?.loadUrl(searchUrl)
+                    },
+                    onNavigate = { url ->
+                        showHome = false
+                        viewModel.updateActiveTabUrl(url)
+                        webViewInstance?.loadUrl(url)
+                    }
+                )
+            } else {
             // Multi-tab WebView container
             // Each tab has its own WebView instance stored in webViewInstances map
             AndroidView(
@@ -500,7 +529,10 @@ fun BrowserTab(viewModel: MainViewModel) {
                                 viewModel.addNotificationSite(origin)
                             }
                         ).also { wv ->
-                            wv.loadUrl(tabData?.url ?: "https://google.com")
+                            val url = tabData?.url ?: "about:blank"
+                            if (url != "about:blank") {
+                                wv.loadUrl(url)
+                            }
                         }
                     }
 
@@ -521,6 +553,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                     }
                 }
             )
+            } // end else (not showHome)
         }
 
         // ===================== BOOKMARKS SHEET =====================

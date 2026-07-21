@@ -40,7 +40,7 @@ data class DetectedMedia(
 data class TabData(
     val id: String = java.util.UUID.randomUUID().toString(),
     val title: String = "New Tab",
-    val url: String = "https://google.com",
+    val url: String = "about:blank",
     val isIncognito: Boolean = false
 )
 
@@ -76,7 +76,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val activeTabId = MutableStateFlow<String?>(_initialTab.id)
 
     // Browser state (synced from active tab)
-    val currentWebUrl = MutableStateFlow("https://google.com")
+    val currentWebUrl = MutableStateFlow("about:blank")
     val isIncognito = MutableStateFlow(false)
 
     // ─── App Settings (Persisted in app_settings) ────────────────────────────
