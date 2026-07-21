@@ -15,11 +15,12 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -48,6 +49,7 @@ import coil.request.ImageRequest
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
 import com.example.ui.components.VideoPlayerDialog
+import com.example.ui.components.PatternLockView
 import com.example.ui.viewmodel.MainViewModel
 
 import androidx.compose.foundation.BorderStroke
@@ -59,6 +61,8 @@ import java.util.*
 import kotlin.collections.set
 
 private enum class VaultScreen { SETUP, LOCKED, HOME, CATEGORY_VIEW }
+
+private enum class LockType { PIN, PATTERN }
 
 private data class CategoryInfo(
     val key: String,
@@ -83,6 +87,7 @@ fun VaultTab(viewModel: MainViewModel) {
     val isBiometricAvailable by viewModel.isBiometricAvailable.collectAsState()
     val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
     val privateList by viewModel.privateDownloads.collectAsState()
+    val storedLockType by viewModel.vaultLockType.collectAsState()
 
     var currentScreen by remember { mutableStateOf(VaultScreen.LOCKED) }
     var selectedCategory by remember { mutableStateOf("") }
@@ -93,6 +98,13 @@ fun VaultTab(viewModel: MainViewModel) {
     var showForgotPinDialog by remember { mutableStateOf(false) }
     var viewingImage by remember { mutableStateOf<String?>(null) }
     var activePlayingFilePath by remember { mutableStateOf<String?>(null) }
+
+    // Pattern state
+    var selectedLockType by remember { mutableStateOf(LockType.PIN) }
+    var patternInput by remember { mutableStateOf(emptyList<Int>()) }
+    var confirmPatternInput by remember { mutableStateOf(emptyList<Int>()) }
+    var patternStep by remember { mutableIntStateOf(1) }
+    var patternError by remember { mutableStateOf(false) }
 
     // Batch selection
     var selectedIds by remember { mutableStateOf(setOf<Int>()) }
@@ -227,26 +239,59 @@ fun VaultTab(viewModel: MainViewModel) {
             when (currentScreen) {
                 VaultScreen.SETUP -> {
                     SetupVaultContent(
+                        lockType = selectedLockType,
+                        onLockTypeChange = { selectedLockType = it },
                         pinInput = pinInput,
                         onPinChange = { if (it.length <= 4) pinInput = it },
                         confirmPinInput = confirmPinInput,
                         onConfirmPinChange = { if (it.length <= 4) confirmPinInput = it },
+                        patternInput = patternInput,
+                        onPatternComplete = { pattern ->
+                            if (patternStep == 1) {
+                                patternInput = pattern
+                                patternStep = 2
+                            } else {
+                                confirmPatternInput = pattern
+                            }
+                        },
+                        patternStep = patternStep,
+                        patternError = patternError,
                         hintInput = hintInput,
                         onHintChange = { hintInput = it },
                         useBiometric = useBiometric,
                         onUseBiometricChange = { useBiometric = it },
                         isBiometricAvailable = isBiometricAvailable,
                         onSetup = {
-                            if (pinInput.length != 4) {
-                                Toast.makeText(context, "PIN must be exactly 4 digits", Toast.LENGTH_SHORT).show()
-                            } else if (pinInput != confirmPinInput) {
-                                Toast.makeText(context, "PINs do not match", Toast.LENGTH_SHORT).show()
-                            } else if (hintInput.isBlank()) {
-                                Toast.makeText(context, "Please enter a PIN hint for safety", Toast.LENGTH_SHORT).show()
+                            if (selectedLockType == LockType.PIN) {
+                                if (pinInput.length != 4) {
+                                    Toast.makeText(context, "PIN must be exactly 4 digits", Toast.LENGTH_SHORT).show()
+                                } else if (pinInput != confirmPinInput) {
+                                    Toast.makeText(context, "PINs do not match", Toast.LENGTH_SHORT).show()
+                                } else if (hintInput.isBlank()) {
+                                    Toast.makeText(context, "Please enter a PIN hint for safety", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    viewModel.setVaultPin(pinInput, hintInput, useBiometric)
+                                    Toast.makeText(context, "Vault configured!", Toast.LENGTH_SHORT).show()
+                                    pinInput = ""; confirmPinInput = ""; hintInput = ""
+                                }
                             } else {
-                                viewModel.setVaultPin(pinInput, hintInput, useBiometric)
-                                Toast.makeText(context, "Vault configured!", Toast.LENGTH_SHORT).show()
-                                pinInput = ""; confirmPinInput = ""; hintInput = ""
+                                if (patternInput.size < 4) {
+                                    Toast.makeText(context, "Pattern must connect at least 4 dots", Toast.LENGTH_SHORT).show()
+                                } else if (patternInput != confirmPatternInput) {
+                                    patternError = true
+                                    Toast.makeText(context, "Patterns do not match. Try again.", Toast.LENGTH_SHORT).show()
+                                    patternInput = emptyList()
+                                    confirmPatternInput = emptyList()
+                                    patternStep = 1
+                                } else if (hintInput.isBlank()) {
+                                    Toast.makeText(context, "Please enter a hint for safety", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    viewModel.setVaultPattern(patternInput, hintInput, useBiometric)
+                                    Toast.makeText(context, "Vault configured!", Toast.LENGTH_SHORT).show()
+                                    patternInput = emptyList()
+                                    confirmPatternInput = emptyList()
+                                    hintInput = ""
+                                }
                             }
                         }
                     )
@@ -254,6 +299,7 @@ fun VaultTab(viewModel: MainViewModel) {
 
                 VaultScreen.LOCKED -> {
                     LockedVaultContent(
+                        lockType = storedLockType ?: "pin",
                         pinInput = pinInput,
                         onPinChange = { if (it.length <= 4) pinInput = it },
                         onUnlock = {
@@ -263,6 +309,14 @@ fun VaultTab(viewModel: MainViewModel) {
                                 Toast.makeText(context, "Incorrect PIN", Toast.LENGTH_SHORT).show()
                             }
                         },
+                        onPatternComplete = { pattern ->
+                            if (viewModel.unlockVaultWithPattern(pattern)) {
+                                Toast.makeText(context, "Vault Decrypted!", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Incorrect pattern", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        patternError = patternError,
                         pinHint = viewModel.pinHint.collectAsState().value,
                         isBiometricAvailable = isBiometricAvailable && isBiometricEnabled,
                         onBiometricUnlock = { authenticateWithBiometric() },
@@ -424,12 +478,14 @@ fun VaultTab(viewModel: MainViewModel) {
         if (showForgotPinDialog) {
             ForgotPinDialog(
                 hint = viewModel.pinHint.collectAsState().value,
+                lockType = storedLockType ?: "pin",
                 onDismiss = { showForgotPinDialog = false },
                 onConfirmReset = {
                     viewModel.resetVault()
                     showForgotPinDialog = false
                     pinInput = ""; confirmPinInput = ""; hintInput = ""
-                    Toast.makeText(context, "Vault reset. Set a new PIN.", Toast.LENGTH_SHORT).show()
+                    patternInput = emptyList(); confirmPatternInput = emptyList(); patternStep = 1
+                    Toast.makeText(context, "Vault reset. Set a new lock.", Toast.LENGTH_SHORT).show()
                 }
             )
         }
@@ -440,10 +496,16 @@ fun VaultTab(viewModel: MainViewModel) {
 
 @Composable
 private fun SetupVaultContent(
+    lockType: LockType,
+    onLockTypeChange: (LockType) -> Unit,
     pinInput: String,
     onPinChange: (String) -> Unit,
     confirmPinInput: String,
     onConfirmPinChange: (String) -> Unit,
+    patternInput: List<Int>,
+    onPatternComplete: (List<Int>) -> Unit,
+    patternStep: Int,
+    patternError: Boolean,
     hintInput: String,
     onHintChange: (String) -> Unit,
     useBiometric: Boolean,
@@ -452,7 +514,7 @@ private fun SetupVaultContent(
     onSetup: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -460,27 +522,90 @@ private fun SetupVaultContent(
         Spacer(modifier = Modifier.height(16.dp))
         Text("Secure Private Vault", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(
-            "Set up a secret PIN to protect your files. Vault contents are hidden from device galleries.",
+            "Set up a secret lock to protect your files. Vault contents are hidden from device galleries.",
             style = MaterialTheme.typography.bodyMedium, color = Color.Gray, textAlign = TextAlign.Center,
             modifier = Modifier.padding(vertical = 12.dp)
         )
-        OutlinedTextField(
-            value = pinInput, onValueChange = onPinChange,
-            label = { Text("Enter 4-Digit Security PIN") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            visualTransformation = PasswordVisualTransformation(), singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("setup_pin_field")
-        )
-        OutlinedTextField(
-            value = confirmPinInput, onValueChange = onConfirmPinChange,
-            label = { Text("Confirm 4-Digit Security PIN") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            visualTransformation = PasswordVisualTransformation(), singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("confirm_pin_field")
-        )
+
+        // Lock type selector
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            FilterChip(
+                selected = lockType == LockType.PIN,
+                onClick = { onLockTypeChange(LockType.PIN) },
+                label = { Text("PIN") },
+                leadingIcon = { Icon(Icons.Default.Pin, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                modifier = Modifier.weight(1f)
+            )
+            FilterChip(
+                selected = lockType == LockType.PATTERN,
+                onClick = {
+                    onLockTypeChange(LockType.PATTERN)
+                    patternInput.toList()
+                },
+                label = { Text("Pattern") },
+                leadingIcon = { Icon(Icons.Default.Pattern, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (lockType == LockType.PIN) {
+            OutlinedTextField(
+                value = pinInput, onValueChange = onPinChange,
+                label = { Text("Enter 4-Digit Security PIN") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("setup_pin_field")
+            )
+            OutlinedTextField(
+                value = confirmPinInput, onValueChange = onConfirmPinChange,
+                label = { Text("Confirm 4-Digit Security PIN") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("confirm_pin_field")
+            )
+        } else {
+            // Pattern input
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        if (patternStep == 1) "Draw your unlock pattern"
+                        else "Draw pattern again to confirm",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    PatternLockView(
+                        onPatternComplete = onPatternComplete,
+                        isError = patternError
+                    )
+                    if (patternInput.isNotEmpty() && patternStep == 2) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            "Pattern recorded. Draw again to confirm.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            }
+        }
+
         OutlinedTextField(
             value = hintInput, onValueChange = onHintChange,
-            label = { Text("Enter PIN Recovery Hint") }, singleLine = true,
+            label = { Text("Enter Recovery Hint") }, singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("pin_hint_field")
         )
 
@@ -511,9 +636,12 @@ private fun SetupVaultContent(
 
 @Composable
 private fun LockedVaultContent(
+    lockType: String,
     pinInput: String,
     onPinChange: (String) -> Unit,
     onUnlock: () -> Unit,
+    onPatternComplete: (List<Int>) -> Unit,
+    patternError: Boolean,
     pinHint: String?,
     isBiometricAvailable: Boolean,
     onBiometricUnlock: () -> Unit,
@@ -527,27 +655,38 @@ private fun LockedVaultContent(
         Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(80.dp), tint = MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.height(16.dp))
         Text("Vault Locked", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(
-            "Enter your secret PIN code to decrypt private files.",
-            style = MaterialTheme.typography.bodyMedium, color = Color.Gray, textAlign = TextAlign.Center,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
 
-        OutlinedTextField(
-            value = pinInput, onValueChange = onPinChange,
-            label = { Text("Enter PIN") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            visualTransformation = PasswordVisualTransformation(), singleLine = true,
-            modifier = Modifier.fillMaxWidth(0.8f).testTag("unlock_pin_field")
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = onUnlock,
-            modifier = Modifier.fillMaxWidth(0.8f).height(52.dp).testTag("unlock_vault_button")
-        ) {
-            Text("Unlock Vault")
+        if (lockType == "pattern") {
+            Text(
+                "Draw your unlock pattern to decrypt files.",
+                style = MaterialTheme.typography.bodyMedium, color = Color.Gray, textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+            PatternLockView(
+                onPatternComplete = onPatternComplete,
+                isError = patternError,
+                modifier = Modifier.fillMaxWidth()
+            )
+        } else {
+            Text(
+                "Enter your secret PIN code to decrypt private files.",
+                style = MaterialTheme.typography.bodyMedium, color = Color.Gray, textAlign = TextAlign.Center,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+            OutlinedTextField(
+                value = pinInput, onValueChange = onPinChange,
+                label = { Text("Enter PIN") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                modifier = Modifier.fillMaxWidth(0.8f).testTag("unlock_pin_field")
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onUnlock,
+                modifier = Modifier.fillMaxWidth(0.8f).height(52.dp).testTag("unlock_vault_button")
+            ) {
+                Text("Unlock Vault")
+            }
         }
 
         if (isBiometricAvailable) {
@@ -564,12 +703,12 @@ private fun LockedVaultContent(
 
         if (!pinHint.isNullOrBlank()) {
             Spacer(modifier = Modifier.height(16.dp))
-            Text("PIN Hint: $pinHint", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text("Hint: $pinHint", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
         TextButton(onClick = onForgotPin) {
-            Text("Forgot PIN?", color = MaterialTheme.colorScheme.error)
+            Text("Forgot ${if (lockType == "pattern") "Pattern" else "PIN"}?", color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -942,17 +1081,19 @@ private fun InfoRow(label: String, value: String) {
 @Composable
 private fun ForgotPinDialog(
     hint: String?,
+    lockType: String,
     onDismiss: () -> Unit,
     onConfirmReset: () -> Unit
 ) {
+    val lockLabel = if (lockType == "pattern") "Pattern" else "PIN"
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-        title = { Text("Forgot PIN?") },
+        title = { Text("Forgot $lockLabel?") },
         text = {
             Column {
                 if (!hint.isNullOrBlank()) {
-                    Text("Your PIN hint: $hint")
+                    Text("Your hint: $hint")
                     Spacer(modifier = Modifier.height(8.dp))
                 }
                 Text("Resetting will erase all saved files in the vault. This cannot be undone.")

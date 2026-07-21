@@ -185,6 +185,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Vault
     val isVaultLocked = MutableStateFlow(true)
     val vaultPin = MutableStateFlow<String?>(null)
+    val vaultPattern = MutableStateFlow<String?>(null)
+    val vaultLockType = MutableStateFlow<String?>("pin")
     val pinHint = MutableStateFlow<String?>(null)
     val isBiometricAvailable = MutableStateFlow(false)
     val isBiometricEnabled = MutableStateFlow(false)
@@ -195,6 +197,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         vaultDir = File(application.filesDir, "vault").also { it.mkdirs() }
         val vaultPrefs = application.getSharedPreferences("vault_prefs", Context.MODE_PRIVATE)
         vaultPin.value = vaultPrefs.getString("pin", null)
+        vaultPattern.value = vaultPrefs.getString("pattern", null)
+        vaultLockType.value = vaultPrefs.getString("lock_type", "pin")
         pinHint.value = vaultPrefs.getString("hint", null)
         isBiometricEnabled.value = vaultPrefs.getBoolean("biometric_enabled", false)
         checkBiometricAvailability(application)
@@ -587,8 +591,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setVaultPin(pin: String, hint: String, enableBiometric: Boolean) {
         viewModelScope.launch {
             val prefs = getApplication<Application>().getSharedPreferences("vault_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putString("pin", pin).putString("hint", hint).putBoolean("biometric_enabled", enableBiometric).apply()
+            prefs.edit()
+                .putString("pin", pin)
+                .putString("lock_type", "pin")
+                .putString("hint", hint)
+                .putBoolean("biometric_enabled", enableBiometric)
+                .apply()
             vaultPin.value = pin
+            vaultLockType.value = "pin"
+            pinHint.value = hint
+            isBiometricEnabled.value = enableBiometric
+            isVaultLocked.value = false
+        }
+    }
+
+    fun setVaultPattern(pattern: List<Int>, hint: String, enableBiometric: Boolean) {
+        viewModelScope.launch {
+            val patternStr = pattern.joinToString(",")
+            val prefs = getApplication<Application>().getSharedPreferences("vault_prefs", Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString("pattern", patternStr)
+                .putString("lock_type", "pattern")
+                .putString("hint", hint)
+                .putBoolean("biometric_enabled", enableBiometric)
+                .apply()
+            vaultPattern.value = patternStr
+            vaultLockType.value = "pattern"
             pinHint.value = hint
             isBiometricEnabled.value = enableBiometric
             isVaultLocked.value = false
@@ -599,13 +627,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return if (vaultPin.value == pin) { isVaultLocked.value = false; true } else false
     }
 
+    fun unlockVaultWithPattern(pattern: List<Int>): Boolean {
+        val stored = vaultPattern.value ?: return false
+        val storedList = stored.split(",").map { it.toInt() }
+        return if (pattern == storedList) { isVaultLocked.value = false; true } else false
+    }
+
     fun lockVault() { isVaultLocked.value = true }
-    fun isVaultConfigured() = vaultPin.value != null
+
+    fun isVaultConfigured() = vaultPin.value != null || vaultPattern.value != null
 
     fun resetVault() {
         val prefs = getApplication<Application>().getSharedPreferences("vault_prefs", Context.MODE_PRIVATE)
         prefs.edit().clear().apply()
         vaultPin.value = null
+        vaultPattern.value = null
+        vaultLockType.value = null
         pinHint.value = null
         isBiometricEnabled.value = false
         isVaultLocked.value = true
