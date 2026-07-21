@@ -54,7 +54,7 @@ fun BrowserSiteListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(bottom = 32.dp)
+            contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             // Info card
             item {

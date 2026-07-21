@@ -96,7 +96,7 @@ fun BrowserPrivacyScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(bottom = 32.dp)
+            contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             // ── SECTION: Privacy & Blocking ──────────────────────────────────
             item { PrivacySectionHeader("Privacy & Blocking") }
