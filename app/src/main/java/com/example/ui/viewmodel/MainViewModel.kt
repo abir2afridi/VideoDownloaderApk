@@ -2,9 +2,16 @@ package com.example.ui.viewmodel
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.OpenableColumns
 import android.util.Log
+import androidx.biometric.BiometricManager
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewModelScope
 import com.example.data.database.AppDatabase
 import com.example.data.database.BookmarkEntity
@@ -179,12 +186,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isVaultLocked = MutableStateFlow(true)
     val vaultPin = MutableStateFlow<String?>(null)
     val pinHint = MutableStateFlow<String?>(null)
+    val isBiometricAvailable = MutableStateFlow(false)
+    val vaultDir: File
 
     // ─────────────────────────────────────────────────────────────────────────
     init {
+        vaultDir = File(application.filesDir, "vault").also { it.mkdirs() }
         val vaultPrefs = application.getSharedPreferences("vault_prefs", Context.MODE_PRIVATE)
         vaultPin.value = vaultPrefs.getString("pin", null)
         pinHint.value = vaultPrefs.getString("hint", null)
+        checkBiometricAvailability(application)
 
         // Persist app_settings on change
         persistFlow(isTrackerBlocking)    { putBoolean("tracker_blocking", it) }
@@ -484,9 +495,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteDownload(downloadId: Int) {
         viewModelScope.launch(Dispatchers.IO) {
-            val download = dao.getDownloadById(downloadId) ?: return@launch
-            DownloadEngine.cancelDownload(getApplication(), downloadId)
-            dao.deleteDownload(download)
+            try {
+                val download = dao.getDownloadById(downloadId) ?: return@launch
+                DownloadEngine.cancelDownload(getApplication(), downloadId)
+                File(download.filepath).delete()
+                dao.deleteDownload(download)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to delete download", e)
+            }
         }
     }
 
@@ -504,6 +520,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             publicDownloads.value.forEach { entity ->
                 DownloadEngine.cancelDownload(getApplication(), entity.id)
+                File(entity.filepath).delete()
                 dao.deleteDownload(entity)
             }
         }
@@ -554,6 +571,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // ─── Vault ───────────────────────────────────────────────────────────────
 
+    private fun checkBiometricAvailability(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val mgr = BiometricManager.from(context)
+            isBiometricAvailable.value = when {
+                mgr.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) == BiometricManager.BIOMETRIC_SUCCESS -> true
+                mgr.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) == BiometricManager.BIOMETRIC_SUCCESS -> true
+                else -> false
+            }
+        }
+    }
+
     fun setVaultPin(pin: String, hint: String) {
         viewModelScope.launch {
             val prefs = getApplication<Application>().getSharedPreferences("vault_prefs", Context.MODE_PRIVATE)
@@ -577,6 +605,99 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         vaultPin.value = null
         pinHint.value = null
         isVaultLocked.value = true
+    }
+
+    fun importToVault(context: Context, uri: Uri, displayName: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val filename = if (displayName.isNotBlank()) displayName
+                    else uri.lastPathSegment?.substringAfterLast('/') ?: "imported_file"
+
+                val targetFile = File(vaultDir, filename)
+                var index = 1
+                while (targetFile.exists()) {
+                    val base = filename.substringBeforeLast('.')
+                    val ext = filename.substringAfterLast('.', "")
+                    val renamed = if (ext.isNotEmpty()) "${base}_($index).$ext" else "${base}_($index)"
+                    val tmp = File(vaultDir, renamed)
+                    if (!tmp.exists()) { tmp; break }
+                    index++
+                }
+
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    targetFile.outputStream().use { output -> input.copyTo(output) }
+                }
+
+                val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                val category = when {
+                    mimeType.startsWith("video") -> "Video"
+                    mimeType.startsWith("audio") -> "Audio"
+                    mimeType.startsWith("image") -> "Images"
+                    else -> "Other"
+                }
+
+                val entity = DownloadEntity(
+                    url = uri.toString(),
+                    title = filename.substringBeforeLast('.'),
+                    filename = filename,
+                    filepath = targetFile.absolutePath,
+                    mimeType = mimeType,
+                    category = category,
+                    status = "COMPLETED",
+                    totalBytes = targetFile.length(),
+                    downloadedBytes = targetFile.length(),
+                    isPrivate = true,
+                    integrityStatus = "OK"
+                )
+                dao.insertDownload(entity)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to import file to vault", e)
+            }
+        }
+    }
+
+    fun exportFromVault(downloadId: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val entity = dao.getDownloadById(downloadId) ?: return@launch
+                val sourceFile = File(entity.filepath)
+                if (!sourceFile.exists()) return@launch
+                val targetDir = File(downloadFolderPath.value)
+                targetDir.mkdirs()
+                val targetFile = File(targetDir, entity.filename)
+                var exportFile = targetFile
+                var idx = 1
+                while (exportFile.exists()) {
+                    val base = entity.filename.substringBeforeLast('.')
+                    val ext = entity.filename.substringAfterLast('.', "")
+                    val renamed = if (ext.isNotEmpty()) "${base}_($idx).$ext" else "${base}_($idx)"
+                    exportFile = File(targetDir, renamed)
+                    idx++
+                }
+                sourceFile.copyTo(exportFile, overwrite = false)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to export file from vault", e)
+            }
+        }
+    }
+
+    fun deleteVaultItem(downloadId: Int) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val entity = dao.getDownloadById(downloadId) ?: return@launch
+                DownloadEngine.cancelDownload(getApplication(), downloadId)
+                File(entity.filepath).delete()
+                dao.deleteDownloadById(downloadId)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to delete vault item", e)
+            }
+        }
+    }
+
+    fun deleteMultipleVaultItems(ids: List<Int>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            ids.forEach { id -> deleteVaultItem(id) }
+        }
     }
 
     private fun defaultDownloadPath(app: Application): String {

@@ -56,6 +56,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.ui.screens.*
 import com.example.ui.screens.LoadingScreen
 import com.example.ui.theme.MyApplicationTheme
@@ -145,6 +148,18 @@ class MainActivity : ComponentActivity() {
             } else {
                 isNavCollapsed = false
             }
+        }
+
+        // Auto-lock vault when app goes to background
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_STOP) {
+                    viewModel.lockVault()
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
