@@ -11,11 +11,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +28,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -31,8 +38,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.FragmentActivity
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.data.database.DownloadEntity
 import com.example.data.download.MediaUtils
 import com.example.ui.components.VideoPlayerDialog
@@ -46,6 +58,22 @@ import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.collections.set
 
+private enum class VaultScreen { SETUP, LOCKED, HOME, CATEGORY_VIEW }
+
+private data class CategoryInfo(
+    val key: String,
+    val label: String,
+    val icon: ImageVector,
+    val color: Color
+)
+
+private val VAULT_CATEGORIES = listOf(
+    CategoryInfo("Images", "Images", Icons.Default.Image, Color(0xFF4CAF50)),
+    CategoryInfo("Video", "Videos", Icons.Default.VideoLibrary, Color(0xFF2196F3)),
+    CategoryInfo("Audio", "Audio", Icons.Default.Audiotrack, Color(0xFF9C27B0)),
+    CategoryInfo("Other", "Others", Icons.Default.Description, Color(0xFFFF9800)),
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun VaultTab(viewModel: MainViewModel) {
@@ -53,15 +81,18 @@ fun VaultTab(viewModel: MainViewModel) {
     val isLocked by viewModel.isVaultLocked.collectAsState()
     val isConfigured = viewModel.isVaultConfigured()
     val isBiometricAvailable by viewModel.isBiometricAvailable.collectAsState()
+    val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
+    val privateList by viewModel.privateDownloads.collectAsState()
 
+    var currentScreen by remember { mutableStateOf(VaultScreen.LOCKED) }
+    var selectedCategory by remember { mutableStateOf("") }
     var pinInput by remember { mutableStateOf("") }
     var hintInput by remember { mutableStateOf("") }
     var confirmPinInput by remember { mutableStateOf("") }
-
-    val isBiometricEnabled by viewModel.isBiometricEnabled.collectAsState()
     var useBiometric by remember { mutableStateOf(false) }
-    var activePlayingFilePath by remember { mutableStateOf<String?>(null) }
     var showForgotPinDialog by remember { mutableStateOf(false) }
+    var viewingImage by remember { mutableStateOf<String?>(null) }
+    var activePlayingFilePath by remember { mutableStateOf<String?>(null) }
 
     // Batch selection
     var selectedIds by remember { mutableStateOf(setOf<Int>()) }
@@ -85,38 +116,50 @@ fun VaultTab(viewModel: MainViewModel) {
         }
     }
 
-    // Biometric unlock (lazy - only created on demand)
-    var biometricUnlockAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-    LaunchedEffect(isBiometricAvailable) {
-        if (isBiometricAvailable) {
-            try {
-                val activity = context as? FragmentActivity
-                if (activity != null) {
-                    val prompt = BiometricPrompt(
-                        activity,
-                        object : BiometricPrompt.AuthenticationCallback() {
-                            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                                viewModel.unlockVault(viewModel.vaultPin.value ?: "")
-                            }
-                            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                                Toast.makeText(context, "Biometric error: $errString", Toast.LENGTH_SHORT).show()
-                            }
-                            override fun onAuthenticationFailed() {
-                                Toast.makeText(context, "Biometric not recognized", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    )
-                    val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                        .setTitle("Unlock Private Vault")
-                        .setSubtitle("Use your fingerprint to access secure files")
-                        .setAllowedAuthenticators(
-                            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                            BiometricManager.Authenticators.BIOMETRIC_WEAK
-                        )
-                        .build()
-                    biometricUnlockAction = { prompt.authenticate(promptInfo) }
+    // Navigate to correct screen based on state
+    LaunchedEffect(isConfigured, isLocked) {
+        currentScreen = when {
+            !isConfigured -> VaultScreen.SETUP
+            isLocked -> VaultScreen.LOCKED
+            else -> VaultScreen.HOME
+        }
+    }
+
+    fun authenticateWithBiometric() {
+        try {
+            val activity = context as? FragmentActivity
+                ?: run {
+                    Toast.makeText(context, "Biometric not supported", Toast.LENGTH_SHORT).show()
+                    return
                 }
-            } catch (_: Exception) { }
+            val pin = viewModel.vaultPin.value ?: return
+            val executor = ContextCompat.getMainExecutor(context)
+
+            val callback = object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    viewModel.unlockVault(pin)
+                    pinInput = ""
+                }
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    if (errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
+                        errorCode != BiometricPrompt.ERROR_USER_CANCELED) {
+                        Toast.makeText(context, errString, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                override fun onAuthenticationFailed() {
+                    Toast.makeText(context, "Biometric not recognized", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            val biometricPrompt = BiometricPrompt(activity, executor, callback)
+            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Unlock Private Vault")
+                .setSubtitle("Use your fingerprint to access secure files")
+                .setNegativeButtonText("Cancel")
+                .build()
+            biometricPrompt.authenticate(promptInfo)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Biometric error: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -135,9 +178,13 @@ fun VaultTab(viewModel: MainViewModel) {
             ) {
                 TabHeader(
                     category = "Security",
-                    title = "Private Vault",
+                    title = when (currentScreen) {
+                        VaultScreen.HOME -> "Private Vault"
+                        VaultScreen.CATEGORY_VIEW -> selectedCategory
+                        else -> "Private Vault"
+                    },
                     actionContent = {
-                        if (!isLocked) {
+                        if (!isLocked && currentScreen == VaultScreen.HOME) {
                             if (isSelectMode) {
                                 IconButton(onClick = { clearSelection() }) {
                                     Icon(Icons.Default.Close, contentDescription = "Cancel Selection")
@@ -145,9 +192,7 @@ fun VaultTab(viewModel: MainViewModel) {
                             } else {
                                 Row {
                                     IconButton(
-                                        onClick = {
-                                            importLauncher.launch(arrayOf("*/*"))
-                                        },
+                                        onClick = { importLauncher.launch(arrayOf("*/*")) },
                                         modifier = Modifier
                                             .background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
                                     ) {
@@ -163,6 +208,11 @@ fun VaultTab(viewModel: MainViewModel) {
                                 }
                             }
                         }
+                        if (currentScreen == VaultScreen.CATEGORY_VIEW && !isSelectMode) {
+                            IconButton(onClick = { currentScreen = VaultScreen.HOME }) {
+                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            }
+                        }
                     }
                 )
             }
@@ -174,8 +224,8 @@ fun VaultTab(viewModel: MainViewModel) {
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            when {
-                !isConfigured -> {
+            when (currentScreen) {
+                VaultScreen.SETUP -> {
                     SetupVaultContent(
                         pinInput = pinInput,
                         onPinChange = { if (it.length <= 4) pinInput = it },
@@ -195,113 +245,157 @@ fun VaultTab(viewModel: MainViewModel) {
                                 Toast.makeText(context, "Please enter a PIN hint for safety", Toast.LENGTH_SHORT).show()
                             } else {
                                 viewModel.setVaultPin(pinInput, hintInput, useBiometric)
-                                Toast.makeText(context, "Vault Successfully Configured!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Vault configured!", Toast.LENGTH_SHORT).show()
                                 pinInput = ""; confirmPinInput = ""; hintInput = ""
                             }
                         }
                     )
                 }
 
-                isLocked -> {
+                VaultScreen.LOCKED -> {
                     LockedVaultContent(
                         pinInput = pinInput,
                         onPinChange = { if (it.length <= 4) pinInput = it },
                         onUnlock = {
                             if (viewModel.unlockVault(pinInput)) {
                                 pinInput = ""
-                                Toast.makeText(context, "Vault Decrypted!", Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Incorrect PIN. Try again.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Incorrect PIN", Toast.LENGTH_SHORT).show()
                             }
                         },
                         pinHint = viewModel.pinHint.collectAsState().value,
                         isBiometricAvailable = isBiometricAvailable && isBiometricEnabled,
-                        onBiometricUnlock = { biometricUnlockAction?.invoke() },
+                        onBiometricUnlock = { authenticateWithBiometric() },
                         onForgotPin = { showForgotPinDialog = true }
                     )
                 }
 
-                else -> {
-                    val privateList by viewModel.privateDownloads.collectAsState()
-
+                VaultScreen.HOME -> {
                     if (privateList.isEmpty()) {
-                        EmptyVaultContent()
+                        EmptyVaultContent(onImport = { importLauncher.launch(arrayOf("*/*")) })
                     } else {
-                        val toggleSelect: (Int) -> Unit = { id ->
-                        selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id
-                        isSelectMode = selectedIds.isNotEmpty()
-                    }
-                    VaultListContent(
+                        VaultHomeContent(
                             items = privateList,
-                            selectedIds = selectedIds,
-                            isSelectMode = isSelectMode,
-                            onToggleSelect = toggleSelect,
-                            onLongPress = { id ->
-                                if (!isSelectMode) {
-                                    selectedIds = setOf(id)
-                                    isSelectMode = true
-                                }
+                            onCategoryClick = { category ->
+                                selectedCategory = category
+                                currentScreen = VaultScreen.CATEGORY_VIEW
+                                clearSelection()
                             },
-                            onItemClick = { item ->
-                                if (isSelectMode) {
-                                    toggleSelect(item.id)
-                                } else if (item.status == "COMPLETED") {
-                                    activePlayingFilePath = item.filepath
-                                } else {
-                                    Toast.makeText(context, "Download in progress. Please wait.", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            onPlay = { path -> activePlayingFilePath = path },
-                            onExport = { id -> viewModel.exportFromVault(id); Toast.makeText(context, "Exporting...", Toast.LENGTH_SHORT).show() },
-                            onDelete = { id -> viewModel.deleteVaultItem(id) },
-                            onInfo = { item -> infoSheetItem = item }
+                            onImport = { importLauncher.launch(arrayOf("*/*")) }
                         )
+                    }
+                }
 
-                        // Batch action bar
-                        AnimatedVisibility(
-                            visible = isSelectMode && selectedIds.isNotEmpty(),
-                            enter = slideInVertically { it },
-                            exit = slideOutVertically { it },
-                            modifier = Modifier.align(Alignment.BottomCenter)
+                VaultScreen.CATEGORY_VIEW -> {
+                    val categoryItems = privateList.filter { it.category == selectedCategory }
+                    VaultCategoryContent(
+                        category = selectedCategory,
+                        items = categoryItems,
+                        selectedIds = selectedIds,
+                        isSelectMode = isSelectMode,
+                        onToggleSelect = { id ->
+                            selectedIds = if (id in selectedIds) selectedIds - id else selectedIds + id
+                            isSelectMode = selectedIds.isNotEmpty()
+                        },
+                        onLongPress = { id ->
+                            if (!isSelectMode) {
+                                selectedIds = setOf(id)
+                                isSelectMode = true
+                            }
+                        },
+                        onItemClick = { item ->
+                            if (isSelectMode) {
+                                val newIds = if (item.id in selectedIds) selectedIds - item.id else selectedIds + item.id
+                                selectedIds = newIds
+                                isSelectMode = newIds.isNotEmpty()
+                            } else {
+                                when (item.category) {
+                                    "Images" -> viewingImage = item.filepath
+                                    "Video", "Audio" -> {
+                                        if (item.status == "COMPLETED") {
+                                            activePlayingFilePath = item.filepath
+                                        } else {
+                                            Toast.makeText(context, "File not ready yet", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                    else -> {
+                                        // Open file with intent
+                                        try {
+                                            val file = File(item.filepath)
+                                            if (file.exists()) {
+                                                val uri = FileProvider.getUriForFile(
+                                                    context,
+                                                    "${context.packageName}.fileprovider",
+                                                    file
+                                                )
+                                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                                    setDataAndType(uri, item.mimeType)
+                                                    addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                                }
+                                                context.startActivity(intent)
+                                            }
+                                        } catch (_: Exception) {
+                                            Toast.makeText(context, "Cannot open file", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        onExport = { id ->
+                            viewModel.exportFromVault(id)
+                            Toast.makeText(context, "Exporting...", Toast.LENGTH_SHORT).show()
+                        },
+                        onDelete = { id ->
+                            viewModel.deleteVaultItem(id)
+                            selectedIds = selectedIds - id
+                            if (selectedIds.isEmpty()) isSelectMode = false
+                        },
+                        onInfo = { item -> infoSheetItem = item }
+                    )
+
+                    // Batch action bar
+                    AnimatedVisibility(
+                        visible = isSelectMode && selectedIds.isNotEmpty(),
+                        enter = slideInVertically { it },
+                        exit = slideOutVertically { it },
+                        modifier = Modifier.align(Alignment.BottomCenter)
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 16.dp),
+                            shape = RoundedCornerShape(24.dp),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            tonalElevation = 4.dp
                         ) {
-                            Surface(
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 16.dp),
-                                shape = RoundedCornerShape(24.dp),
-                                color = MaterialTheme.colorScheme.errorContainer,
-                                tonalElevation = 4.dp
+                                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        "${selectedIds.size} selected",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onErrorContainer
-                                    )
-                                    Row {
-                                        TextButton(onClick = { clearSelection() }) {
-                                            Text("Cancel", color = MaterialTheme.colorScheme.onErrorContainer)
-                                        }
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Button(
-                                            onClick = {
-                                                viewModel.deleteMultipleVaultItems(selectedIds.toList())
-                                                clearSelection()
-                                                Toast.makeText(context, "Deleting ${selectedIds.size} files...", Toast.LENGTH_SHORT).show()
-                                            },
-                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                                        ) {
-                                            Icon(Icons.Default.Delete, contentDescription = null)
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Delete")
-                                        }
+                                Text(
+                                    "${selectedIds.size} selected",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                )
+                                Row {
+                                    TextButton(onClick = { clearSelection() }) {
+                                        Text("Cancel", color = MaterialTheme.colorScheme.onErrorContainer)
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(
+                                        onClick = {
+                                            viewModel.deleteMultipleVaultItems(selectedIds.toList())
+                                            clearSelection()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("Delete")
                                     }
                                 }
                             }
@@ -311,14 +405,19 @@ fun VaultTab(viewModel: MainViewModel) {
             }
         }
 
+        // Dialogs & Sheets
         activePlayingFilePath?.let { path ->
             VideoPlayerDialog(filePath = path, onDismiss = { activePlayingFilePath = null })
         }
 
         infoSheetItem?.let { item ->
-            FileInfoBottomSheet(
-                item = item,
-                onDismiss = { infoSheetItem = null }
+            FileInfoBottomSheet(item = item, onDismiss = { infoSheetItem = null })
+        }
+
+        viewingImage?.let { imagePath ->
+            ImageViewerDialog(
+                imagePath = imagePath,
+                onDismiss = { viewingImage = null }
             )
         }
 
@@ -330,7 +429,7 @@ fun VaultTab(viewModel: MainViewModel) {
                     viewModel.resetVault()
                     showForgotPinDialog = false
                     pinInput = ""; confirmPinInput = ""; hintInput = ""
-                    Toast.makeText(context, "Vault has been reset. Set a new PIN.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Vault reset. Set a new PIN.", Toast.LENGTH_SHORT).show()
                 }
             )
         }
@@ -361,7 +460,7 @@ private fun SetupVaultContent(
         Spacer(modifier = Modifier.height(16.dp))
         Text("Secure Private Vault", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(
-            "Set up a secret PIN to protect downloaded videos. Vault downloads are completely hidden from standard device galleries.",
+            "Set up a secret PIN to protect your files. Vault contents are hidden from device galleries.",
             style = MaterialTheme.typography.bodyMedium, color = Color.Gray, textAlign = TextAlign.Center,
             modifier = Modifier.padding(vertical = 12.dp)
         )
@@ -448,7 +547,7 @@ private fun LockedVaultContent(
             onClick = onUnlock,
             modifier = Modifier.fillMaxWidth(0.8f).height(52.dp).testTag("unlock_vault_button")
         ) {
-            Text("Unlock Partition")
+            Text("Unlock Vault")
         }
 
         if (isBiometricAvailable) {
@@ -459,7 +558,7 @@ private fun LockedVaultContent(
             ) {
                 Icon(Icons.Default.Fingerprint, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Unlock with Biometric")
+                Text("Unlock with Fingerprint")
             }
         }
 
@@ -475,128 +574,315 @@ private fun LockedVaultContent(
     }
 }
 
-// ─── Empty Screen ─────────────────────────────────────────────────────────────
+// ─── Empty Vault ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun EmptyVaultContent() {
+private fun EmptyVaultContent(onImport: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(72.dp), tint = Color.LightGray)
             Spacer(modifier = Modifier.height(16.dp))
-            Text("Vault is currently empty", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Vault is Empty", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
-                "Tap the upload icon above to import files, or use the browser to download directly to vault.",
+                "Tap Import to add files from your device.",
                 style = MaterialTheme.typography.bodyMedium, color = Color.Gray, textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(onClick = onImport) {
+                Icon(Icons.Default.FileUpload, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Import Files")
+            }
+        }
+    }
+}
+
+// ─── Vault Home (Categories) ──────────────────────────────────────────────────
+
+@Composable
+private fun VaultHomeContent(
+    items: List<DownloadEntity>,
+    onCategoryClick: (String) -> Unit,
+    onImport: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "${items.size} files secured",
+                style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold
+            )
+            IconButton(
+                onClick = onImport,
+                modifier = Modifier.background(MaterialTheme.colorScheme.primaryContainer, shape = CircleShape)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Import", tint = Color.White)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            items(VAULT_CATEGORIES) { category ->
+                val count = items.count { it.category == category.key }
+                CategoryCard(
+                    category = category,
+                    count = count,
+                    onClick = { onCategoryClick(category.key) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryCard(
+    category: CategoryInfo,
+    count: Int,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = category.color.copy(alpha = 0.1f)
+        ),
+        border = BorderStroke(1.dp, category.color.copy(alpha = 0.3f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = category.icon,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = category.color
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                category.label,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "$count files",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
             )
         }
     }
 }
 
-// ─── Vault List ───────────────────────────────────────────────────────────────
+// ─── Vault Category View ──────────────────────────────────────────────────────
 
 @Composable
-private fun VaultListContent(
+private fun VaultCategoryContent(
+    category: String,
     items: List<DownloadEntity>,
     selectedIds: Set<Int>,
     isSelectMode: Boolean,
     onToggleSelect: (Int) -> Unit,
     onLongPress: (Int) -> Unit,
     onItemClick: (DownloadEntity) -> Unit,
-    onPlay: (String) -> Unit,
     onExport: (Int) -> Unit,
     onDelete: (Int) -> Unit,
     onInfo: (DownloadEntity) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
-            "Your Secure Downloads (${items.size} files)",
-            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 12.dp)
+            "${items.size} files",
+            style = MaterialTheme.typography.bodyMedium, color = Color.Gray,
+            modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 100.dp)
-        ) {
-            items(items, key = { it.id }) { item ->
-                val isSelected = item.id in selectedIds
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onItemClick(item) }
-                        .testTag("vault_item_${item.id}"),
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                            else MaterialTheme.colorScheme.surface
-                    ),
-                    border = BorderStroke(
-                        if (isSelected) 2.dp else 1.dp,
-                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        if (items.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(64.dp), tint = Color.LightGray)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text("No files in this category", color = Color.Gray)
+                }
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(items, key = { it.id }) { item ->
+                    val isSelected = item.id in selectedIds
+                    VaultFileCard(
+                        item = item,
+                        isSelected = isSelected,
+                        isSelectMode = isSelectMode,
+                        onClick = { onItemClick(item) },
+                        onLongClick = { onLongPress(item.id) },
+                        onInfo = { onInfo(item) },
+                        onExport = { onExport(item.id) },
+                        onDelete = { onDelete(item.id) }
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun VaultFileCard(
+    item: DownloadEntity,
+    isSelected: Boolean,
+    isSelectMode: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onInfo: () -> Unit,
+    onExport: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                else MaterialTheme.colorScheme.surface
+        ),
+        border = BorderStroke(
+            if (isSelected) 2.dp else 1.dp,
+            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp)
+        ) {
+            // Thumbnail / Icon
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                contentAlignment = Alignment.Center
+            ) {
+                if (item.category == "Images" && File(item.filepath).exists()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(File(item.filepath))
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = item.title,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = when (item.category) {
+                            "Audio" -> Icons.Default.Audiotrack
+                            "Video" -> Icons.Default.VideoLibrary
+                            else -> Icons.Default.Description
+                        },
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
+
+                if (isSelectMode) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = null,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                item.title,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                MediaUtils.formatBytes(item.totalBytes),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.Gray
+            )
+
+            if (!isSelectMode) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (isSelectMode) {
-                            Checkbox(
-                                checked = isSelected,
-                                onCheckedChange = { onToggleSelect(item.id) },
-                                modifier = Modifier.padding(end = 8.dp)
-                            )
-                        }
-
-                        Icon(
-                            imageVector = when (item.category) {
-                                "Audio" -> Icons.Default.Audiotrack
-                                "Images" -> Icons.Default.Image
-                                else -> Icons.Default.Movie
-                            },
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(40.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = item.title, style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "${item.filename}  •  ${MediaUtils.formatBytes(item.totalBytes)}",
-                                style = MaterialTheme.typography.bodySmall, color = Color.Gray,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            DownloadHealthIndicators(
-                                integrityStatus = item.integrityStatus,
-                                connectionHealth = item.connectionHealth
-                            )
-                        }
-
-                        if (!isSelectMode) {
-                            // Actions
-                            IconButton(onClick = { onInfo(item) }) {
-                                Icon(Icons.Default.Info, contentDescription = "Info", tint = MaterialTheme.colorScheme.primary)
-                            }
-                            if (item.category in listOf("Video", "Audio") && item.status == "COMPLETED") {
-                                IconButton(onClick = { onPlay(item.filepath) }) {
-                                    Icon(Icons.Default.PlayArrow, contentDescription = "Play", tint = Color.Green)
-                                }
-                            }
-                            IconButton(onClick = { onExport(item.id) }) {
-                                Icon(Icons.Default.Share, contentDescription = "Export", tint = Color(0xFF4CAF50))
-                            }
-                            IconButton(onClick = { onDelete(item.id) }) {
-                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
-                            }
-                        }
+                    IconButton(onClick = onInfo, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Info, contentDescription = "Info", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                    IconButton(onClick = onExport, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Share, contentDescription = "Export", modifier = Modifier.size(16.dp), tint = Color(0xFF4CAF50))
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
                     }
                 }
+            }
+        }
+    }
+}
+
+// ─── Image Viewer Dialog ──────────────────────────────────────────────────────
+
+@Composable
+private fun ImageViewerDialog(imagePath: String, onDismiss: () -> Unit) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .clickable(onClick = onDismiss)
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(File(imagePath))
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Vault Image",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .statusBarsPadding()
+            ) {
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.White)
             }
         }
     }

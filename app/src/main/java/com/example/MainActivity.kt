@@ -10,7 +10,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.Settings
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -66,7 +66,7 @@ import com.example.ui.viewmodel.MainViewModel
 import com.example.data.download.InstagramCookieStore
 import androidx.compose.animation.Crossfade
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
     private val storagePermissionLauncher = registerForActivityResult(
