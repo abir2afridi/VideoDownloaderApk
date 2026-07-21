@@ -436,10 +436,10 @@ fun BrowserTab(viewModel: MainViewModel) {
                         modifier = Modifier.padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.PlayCircleFilled, contentDescription = "Detected Media", tint = Color.Red)
+                        Icon(Icons.Default.VideoLibrary, contentDescription = "Detected Media", tint = MaterialTheme.colorScheme.onPrimaryContainer)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "${detectedMedia.size} Media Found",
+                            text = "${detectedMedia.size} Media",
                             style = MaterialTheme.typography.labelLarge,
                             fontWeight = FontWeight.Bold
                         )
@@ -887,73 +887,104 @@ fun BrowserTab(viewModel: MainViewModel) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(horizontal = 20.dp, vertical = 12.dp)
                 ) {
+                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Bolt,
-                                contentDescription = null,
-                                tint = Color(0xFFFFD600),
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Detected Media",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.VideoLibrary,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Detected Media",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "${detectedMedia.size} media item${if (detectedMedia.size != 1) "s" else ""} found",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
-                        
-                        Surface(
-                            onClick = { viewModel.clearDetectedMedia(); showMediaSheet = false },
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
-                            shape = CircleShape
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.DeleteSweep,
-                                contentDescription = "Clear all",
-                                tint = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.padding(8.dp).size(20.dp)
-                            )
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (detectedMedia.size > 1) {
+                                FilledTonalButton(
+                                    onClick = {
+                                        detectedMedia.forEach { viewModel.addDownload(it.url, it.title) }
+                                        Toast.makeText(context, "${detectedMedia.size} downloads queued!", Toast.LENGTH_SHORT).show()
+                                        showMediaSheet = false
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("All", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
+
+                            Surface(
+                                onClick = { viewModel.clearDetectedMedia(); showMediaSheet = false },
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                                shape = CircleShape
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteSweep,
+                                    contentDescription = "Clear all",
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.padding(8.dp).size(20.dp)
+                                )
+                            }
                         }
                     }
-                    
-                    Text(
-                        text = "${detectedMedia.size} items ready for high-speed download",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 36.dp, top = 2.dp, bottom = 16.dp)
-                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     LazyColumn(
-                        modifier = Modifier.weight(1f, fill = false).heightIn(max = 450.dp),
+                        modifier = Modifier.weight(1f, fill = false).heightIn(max = 420.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(detectedMedia) { media ->
                             val isAudio = media.url.lowercase().run { contains(".mp3") || contains(".m4a") || contains(".wav") }
-                            
+                            val domain = try { Uri.parse(media.url).host?.removePrefix("www.") ?: "unknown" } catch (_: Exception) { "unknown" }
+
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(20.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surface,
+                                tonalElevation = 1.dp,
+                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.08f))
                             ) {
                                 Column(
-                                    modifier = Modifier.padding(16.dp)
+                                    modifier = Modifier.padding(14.dp)
                                 ) {
                                     Row(verticalAlignment = Alignment.Top) {
                                         Box(
                                             modifier = Modifier
-                                                .size(44.dp)
-                                                .clip(RoundedCornerShape(12.dp))
+                                                .size(48.dp)
+                                                .clip(RoundedCornerShape(14.dp))
                                                 .background(
-                                                    if (isAudio) MaterialTheme.colorScheme.tertiaryContainer 
+                                                    if (isAudio) MaterialTheme.colorScheme.tertiaryContainer
                                                     else MaterialTheme.colorScheme.primaryContainer
                                                 ),
                                             contentAlignment = Alignment.Center
@@ -961,115 +992,117 @@ fun BrowserTab(viewModel: MainViewModel) {
                                             Icon(
                                                 imageVector = if (isAudio) Icons.Default.Audiotrack else Icons.Default.PlayCircle,
                                                 contentDescription = null,
-                                                tint = if (isAudio) MaterialTheme.colorScheme.onTertiaryContainer 
+                                                modifier = Modifier.size(24.dp),
+                                                tint = if (isAudio) MaterialTheme.colorScheme.onTertiaryContainer
                                                        else MaterialTheme.colorScheme.onPrimaryContainer
                                             )
                                         }
-                                        
+
                                         Spacer(modifier = Modifier.width(12.dp))
-                                        
+
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
                                                 text = media.title,
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                maxLines = 1,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 2,
                                                 overflow = TextOverflow.Ellipsis,
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = if (isAudio) MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
+                                                           else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                                                ) {
+                                                    Text(
+                                                        text = if (isAudio) "Audio" else "Video",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        fontWeight = FontWeight.Medium,
+                                                        color = if (isAudio) MaterialTheme.colorScheme.onTertiaryContainer
+                                                               else MaterialTheme.colorScheme.onPrimaryContainer
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = domain,
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.height(2.dp))
                                             Text(
                                                 text = media.url,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
-                                    
-                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    Spacer(modifier = Modifier.height(12.dp))
 
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        // Primary Action: Download
                                         Button(
                                             onClick = {
                                                 viewModel.addDownload(media.url, media.title)
-                                                Toast.makeText(context, "Download Queued!", Toast.LENGTH_SHORT).show()
+                                                Toast.makeText(context, "Download queued!", Toast.LENGTH_SHORT).show()
                                                 showMediaSheet = false
                                             },
-                                            modifier = Modifier.weight(1.2f).height(42.dp),
+                                            modifier = Modifier.weight(1f).height(40.dp),
                                             shape = RoundedCornerShape(12.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp)
+                                            contentPadding = PaddingValues(horizontal = 12.dp)
                                         ) {
-                                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text("Download", style = MaterialTheme.typography.labelLarge)
                                         }
 
-                                        // Secondary Action: Fast Download
-                                        FilledTonalButton(
+                                        Surface(
                                             onClick = {
-                                                viewModel.addDownload(media.url, media.title)
-                                                Toast.makeText(context, "Fast Download started!", Toast.LENGTH_SHORT).show()
+                                                viewModel.addDownload(media.url, media.title, isAudioOnly = true)
+                                                Toast.makeText(context, "Audio extraction queued!", Toast.LENGTH_SHORT).show()
                                                 showMediaSheet = false
                                             },
-                                            modifier = Modifier.weight(1.2f).height(42.dp),
+                                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
                                             shape = RoundedCornerShape(12.dp),
-                                            contentPadding = PaddingValues(horizontal = 8.dp)
+                                            modifier = Modifier.size(40.dp)
                                         ) {
-                                            Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Fast", style = MaterialTheme.typography.labelLarge)
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    Icons.Default.MusicNote,
+                                                    contentDescription = "Audio only",
+                                                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
                                         }
 
-                                        // Utility Actions
-                                        Row(
-                                            modifier = Modifier.weight(0.8f),
-                                            horizontalArrangement = Arrangement.End
+                                        Surface(
+                                            onClick = {
+                                                clipboardManager.setText(AnnotatedString(media.url))
+                                                Toast.makeText(context, "URL copied", Toast.LENGTH_SHORT).show()
+                                            },
+                                            color = MaterialTheme.colorScheme.surfaceVariant,
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.size(40.dp)
                                         ) {
-                                            Surface(
-                                                onClick = {
-                                                    viewModel.addDownload(media.url, media.title, isAudioOnly = true)
-                                                    Toast.makeText(context, "Extracting Audio...", Toast.LENGTH_SHORT).show()
-                                                    showMediaSheet = false
-                                                },
-                                                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
-                                                shape = RoundedCornerShape(12.dp),
-                                                modifier = Modifier.size(42.dp)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        Icons.Default.MusicNote, 
-                                                        contentDescription = "Audio only",
-                                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
-                                                }
-                                            }
-                                            
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            
-                                            Surface(
-                                                onClick = {
-                                                    clipboardManager.setText(AnnotatedString(media.url))
-                                                    Toast.makeText(context, "URL Copied", Toast.LENGTH_SHORT).show()
-                                                },
-                                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                                shape = RoundedCornerShape(12.dp),
-                                                modifier = Modifier.size(42.dp)
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(
-                                                        Icons.Default.ContentCopy, 
-                                                        contentDescription = "Copy link",
-                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                }
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(
+                                                    Icons.Default.ContentCopy,
+                                                    contentDescription = "Copy link",
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
                                             }
                                         }
                                     }
