@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.WrapText
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -139,7 +140,7 @@ fun BrowserContentSettingsScreen(
 
             item {
                 ContentToggleRow(
-                    icon = Icons.Default.WrapText,
+                    icon = Icons.AutoMirrored.Filled.WrapText,
                     iconColor = Color(0xFF00ACC1),
                     title = "Text Wrap",
                     subtitle = if (isTextWrap) "Text wraps to screen width" else "Text may overflow horizontally",

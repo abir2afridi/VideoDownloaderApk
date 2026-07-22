@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.AlignHorizontalLeft
+import androidx.compose.material.icons.automirrored.filled.AlignHorizontalRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.ui.window.Dialog
@@ -1162,9 +1164,9 @@ private fun BrowserToggleRow(
     var expanded by remember { mutableStateOf(false) }
     val positions = listOf("Bottom Left", "Bottom Center", "Bottom Right")
     val positionIcons = mapOf(
-        "Bottom Left" to Icons.Default.AlignHorizontalLeft,
+        "Bottom Left" to Icons.AutoMirrored.Filled.AlignHorizontalLeft,
         "Bottom Center" to Icons.Default.AlignHorizontalCenter,
-        "Bottom Right" to Icons.Default.AlignHorizontalRight
+        "Bottom Right" to Icons.AutoMirrored.Filled.AlignHorizontalRight
     )
 
     SettingsRow(

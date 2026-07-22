@@ -210,7 +210,7 @@ fun FormatSettingsScreen(
 
                     // Format sorting
                     FormatSwitchWithDetailRow(
-                        icon = Icons.Outlined.Sort,
+                        icon = Icons.AutoMirrored.Outlined.Sort,
                         iconTint = Color(0xFF673AB7),
                         title = "Format sorting",
                         subtitle = if (formatSortingFields.isNotEmpty()) formatSortingFields

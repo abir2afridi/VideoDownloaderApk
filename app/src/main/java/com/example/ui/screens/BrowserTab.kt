@@ -111,7 +111,7 @@ fun BrowserTab(viewModel: MainViewModel) {
     // Sync showHome when active tab changes
     LaunchedEffect(activeTabId, tabs) {
         val activeTab = tabs.find { it.id == activeTabId }
-        showHome = activeTab?.url == "about:blank" || activeTab?.url == "https://google.com"
+        showHome = activeTab?.url == "about:blank" || activeTab?.url.isNullOrBlank()
     }
     // Back gesture: navigate website history back, then show home, then fall through to app Home
     BackHandler(enabled = !showHome) {
@@ -498,7 +498,9 @@ fun BrowserTab(viewModel: MainViewModel) {
                         showHome = false
                         viewModel.updateActiveTabUrl(url)
                         webViewInstance?.loadUrl(url)
-                    }
+                    },
+                    viewModel = viewModel,
+                    browsingHistory = browsingHistory
                 )
             } else {
             // Multi-tab WebView container

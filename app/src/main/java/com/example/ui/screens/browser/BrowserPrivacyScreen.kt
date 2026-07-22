@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -116,7 +118,7 @@ fun BrowserPrivacyScreen(
             item {
                 AnimatedVisibility(visible = isAdBlocking) {
                     PrivacyClickRow(
-                        icon = Icons.Default.FormatListBulleted,
+                        icon = Icons.AutoMirrored.Filled.FormatListBulleted,
                         iconColor = Color(0xFFE53935),
                         title = "View Ad Block List",
                         subtitle = "${AdBlocker.blockedDomainsCount(true, false)} domains",
@@ -141,7 +143,7 @@ fun BrowserPrivacyScreen(
             item {
                 AnimatedVisibility(visible = isTrackerBlocking) {
                     PrivacyClickRow(
-                        icon = Icons.Default.FormatListBulleted,
+                        icon = Icons.AutoMirrored.Filled.FormatListBulleted,
                         iconColor = Color(0xFF43A047),
                         title = "View Tracker Block List",
                         subtitle = "${AdBlocker.blockedDomainsCount(false, true)} domains",
@@ -278,7 +280,7 @@ fun BrowserPrivacyScreen(
 
             item {
                 PrivacyClickRow(
-                    icon = Icons.Default.OpenInNew,
+                    icon = Icons.AutoMirrored.Filled.OpenInNew,
                     iconColor = Color(0xFF6D4C41),
                     title = "External Apps",
                     subtitle = when (externalAppsPolicy) {

@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -173,7 +174,7 @@ fun BrowserHomepageSettingsScreen(
 
             item {
                 HomeToggleRow(
-                    icon = Icons.Default.Article,
+                    icon = Icons.AutoMirrored.Filled.Article,
                     iconColor = Color(0xFFE53935),
                     title = "News Feed",
                     subtitle = "Show top news articles on homepage",
