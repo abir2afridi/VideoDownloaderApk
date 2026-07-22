@@ -96,6 +96,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ?: defaultDownloadPath(application)
     )
 
+    // ─── Download Format Settings ─────────────────────────────────────────────
+    val isExtractAudio = MutableStateFlow(settingsPrefs.getBoolean("extract_audio", false))
+    val isAudioConvert = MutableStateFlow(settingsPrefs.getBoolean("audio_convert", false))
+    val audioConvertFormat = MutableStateFlow(settingsPrefs.getInt("audio_convert_format", 0))
+    val audioFormat = MutableStateFlow(settingsPrefs.getInt("audio_format", 0))
+    val audioQuality = MutableStateFlow(settingsPrefs.getInt("audio_quality", 0))
+    val isEmbedMetadata = MutableStateFlow(settingsPrefs.getBoolean("embed_metadata", true))
+    val isCropArtwork = MutableStateFlow(settingsPrefs.getBoolean("crop_artwork", false))
+    val videoFormat = MutableStateFlow(settingsPrefs.getInt("video_format", 2))
+    val videoQuality = MutableStateFlow(settingsPrefs.getInt("video_quality", 0))
+    val isMergeToMkv = MutableStateFlow(settingsPrefs.getBoolean("merge_to_mkv", false))
+    val isFormatSorting = MutableStateFlow(settingsPrefs.getBoolean("format_sorting", false))
+    val formatSortingFields = MutableStateFlow(settingsPrefs.getString("sorting_fields", "") ?: "")
+    val isFormatSelection = MutableStateFlow(settingsPrefs.getBoolean("format_selection", true))
+    val isVideoClip = MutableStateFlow(settingsPrefs.getBoolean("video_clip", false))
+    val isMergeMultiAudio = MutableStateFlow(settingsPrefs.getBoolean("multi_audio_stream", false))
+    val isSubtitle = MutableStateFlow(settingsPrefs.getBoolean("subtitle", false))
+    val subtitleLanguage = MutableStateFlow(settingsPrefs.getString("sub_lang", "en.*,.*-orig") ?: "en.*,.*-orig")
+    val isAutoSubtitle = MutableStateFlow(settingsPrefs.getBoolean("auto_subtitle", false))
+    val convertSubtitle = MutableStateFlow(settingsPrefs.getInt("convert_subtitle", 0))
+    val isAutoTranslatedSubs = MutableStateFlow(settingsPrefs.getBoolean("translated_subs", false))
+    val isEmbedSubtitle = MutableStateFlow(settingsPrefs.getBoolean("embed_subtitle", false))
+    val isKeepSubtitleFiles = MutableStateFlow(settingsPrefs.getBoolean("keep_subtitle", false))
+
     // ─── Time Settings ───────────────────────────────────────────────────────
     val isTime24Hour = MutableStateFlow(settingsPrefs.getBoolean("time_24h", true))
     val hourColor = MutableStateFlow(settingsPrefs.getString("hour_color", "Default") ?: "Default")
@@ -216,6 +240,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persistFlow(browserTogglePosition){ putString("browser_toggle_pos", it) }
         persistFlow(isForceDarkWeb)       { putBoolean("force_dark_web", it) }
         persistFlow(downloadFolderPath)   { putString("download_path", it) }
+
+        // Persist download format settings
+        persistFlow(isExtractAudio)        { putBoolean("extract_audio", it) }
+        persistFlow(isAudioConvert)        { putBoolean("audio_convert", it) }
+        persistFlow(audioConvertFormat)    { putInt("audio_convert_format", it) }
+        persistFlow(audioFormat)           { putInt("audio_format", it) }
+        persistFlow(audioQuality)          { putInt("audio_quality", it) }
+        persistFlow(isEmbedMetadata)       { putBoolean("embed_metadata", it) }
+        persistFlow(isCropArtwork)         { putBoolean("crop_artwork", it) }
+        persistFlow(videoFormat)           { putInt("video_format", it) }
+        persistFlow(videoQuality)          { putInt("video_quality", it) }
+        persistFlow(isMergeToMkv)          { putBoolean("merge_to_mkv", it) }
+        persistFlow(isFormatSorting)       { putBoolean("format_sorting", it) }
+        persistFlow(formatSortingFields)   { putString("sorting_fields", it) }
+        persistFlow(isFormatSelection)     { putBoolean("format_selection", it) }
+        persistFlow(isVideoClip)           { putBoolean("video_clip", it) }
+        persistFlow(isMergeMultiAudio)     { putBoolean("multi_audio_stream", it) }
+        persistFlow(isSubtitle)            { putBoolean("subtitle", it) }
+        persistFlow(subtitleLanguage)      { putString("sub_lang", it) }
+        persistFlow(isAutoSubtitle)        { putBoolean("auto_subtitle", it) }
+        persistFlow(convertSubtitle)       { putInt("convert_subtitle", it) }
+        persistFlow(isAutoTranslatedSubs)  { putBoolean("translated_subs", it) }
+        persistFlow(isEmbedSubtitle)       { putBoolean("embed_subtitle", it) }
+        persistFlow(isKeepSubtitleFiles)   { putBoolean("keep_subtitle", it) }
 
         // Persist time settings
         persistFlow(isTime24Hour)         { putBoolean("time_24h", it) }

@@ -87,6 +87,7 @@ fun SettingsTab(
     var showContentScreen by remember { mutableStateOf(false) }
     var showHomepageScreen by remember { mutableStateOf(false) }
     var showLookAndFeelScreen by remember { mutableStateOf(false) }
+    var showFormatScreen by remember { mutableStateOf(false) }
 
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     var showBatteryHint by remember {
@@ -116,6 +117,7 @@ fun SettingsTab(
     BackHandler {
         when {
             showLookAndFeelScreen -> showLookAndFeelScreen = false
+            showFormatScreen -> showFormatScreen = false
             showPrivacyScreen -> showPrivacyScreen = false
             showSearchScreen -> showSearchScreen = false
             showContentScreen -> showContentScreen = false
@@ -271,6 +273,19 @@ fun SettingsTab(
             }
 
             SettingsCard(
+                sectionIcon = Icons.Default.AspectRatio,
+                sectionTitle = "Download Format"
+            ) {
+                BrowserSettingsRow(
+                    icon = Icons.Default.VideoLibrary,
+                    iconTint = Color(0xFFE91E63),
+                    title = "Format, Quality & Audio",
+                    subtitle = "Video/audio format, quality, subtitles, sorting",
+                    onClick = { showFormatScreen = true }
+                )
+            }
+
+            SettingsCard(
                 sectionIcon = Icons.Default.Security,
                 sectionTitle = "Browser Security & Privacy"
             ) {
@@ -419,6 +434,12 @@ fun SettingsTab(
         LookAndFeelScreen(
             viewModel = viewModel,
             onBack = { showLookAndFeelScreen = false }
+        )
+    }
+    if (showFormatScreen) {
+        FormatSettingsScreen(
+            viewModel = viewModel,
+            onBack = { showFormatScreen = false }
         )
     }
 }
