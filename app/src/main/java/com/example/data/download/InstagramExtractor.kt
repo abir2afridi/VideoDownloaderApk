@@ -52,16 +52,17 @@ private fun extractFromInstagramGraphql(shortcode: String): TikTokVideoData? {
             .header("X-Requested-With", "XMLHttpRequest")
             .get().build()
 
-        val response = extractorClient.newCall(request).execute()
-        val body = response.body?.string() ?: return null
-        if (!response.isSuccessful) return null
+        extractorClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
 
-        val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
-        val root = adapter.fromJson(body) ?: return null
-        val data = root["data"] as? Map<*, *> ?: return null
-        val shortcodeMedia = data["shortcode_media"] as? Map<*, *> ?: return null
-        return parseInstagramMedia(shortcodeMedia)
-    } catch (e: Exception) {
+            val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
+            val root = adapter.fromJson(body) ?: return null
+            val data = root["data"] as? Map<*, *> ?: return null
+            val shortcodeMedia = data["shortcode_media"] as? Map<*, *> ?: return null
+            return parseInstagramMedia(shortcodeMedia)
+        }
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "Instagram GraphQL failed", e)
         return null
     }

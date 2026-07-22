@@ -35,36 +35,37 @@ private fun extractFromSoundCloudApiV2(url: String): TikTokVideoData? {
             .header("User-Agent", MOBILE_UA)
             .header("Accept", "application/json")
             .get().build()
-        val response = extractorClient.newCall(request).execute()
-        val body = response.body?.string() ?: return null
-        if (!response.isSuccessful) return null
+        extractorClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
 
-        val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
-        val data = adapter.fromJson(body) ?: return null
-        val trackId = data["id"] as? Number ?: return null
-        val title = data["title"]?.toString() ?: ""
-        val author = data["user"]?.let {
-            (it as? Map<*, *>)?.get("username")?.toString()
-        } ?: ""
-        val authorId = (data["user"] as? Map<*, *>)?.get("permalink")?.toString() ?: ""
-        val thumbnail = data["artwork_url"]?.toString()
-            ?: (data["user"] as? Map<*, *>)?.get("avatar_url")?.toString() ?: ""
-        val duration = (data["duration"] as? Number)?.toLong()?.div(1000) ?: 0L
+            val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
+            val data = adapter.fromJson(body) ?: return null
+            val trackId = data["id"] as? Number ?: return null
+            val title = data["title"]?.toString() ?: ""
+            val author = data["user"]?.let {
+                (it as? Map<*, *>)?.get("username")?.toString()
+            } ?: ""
+            val authorId = (data["user"] as? Map<*, *>)?.get("permalink")?.toString() ?: ""
+            val thumbnail = data["artwork_url"]?.toString()
+                ?: (data["user"] as? Map<*, *>)?.get("avatar_url")?.toString() ?: ""
+            val duration = (data["duration"] as? Number)?.toLong()?.div(1000) ?: 0L
 
-        val streamUrl = data["stream_url"]?.toString()
-        val downloadUrl = data["download_url"]?.toString()
+            val streamUrl = data["stream_url"]?.toString()
+            val downloadUrl = data["download_url"]?.toString()
 
-        val mediaUrl = streamUrl ?: downloadUrl
-        if (mediaUrl != null) {
-            return TikTokVideoData(
-                id = trackId.toString(), title = title,
-                author = author, authorId = authorId,
-                thumbnail = thumbnail, duration = duration,
-                videoUrl = mediaUrl, videoUrlNoWatermark = null, audioUrl = mediaUrl
-            )
+            val mediaUrl = streamUrl ?: downloadUrl
+            if (mediaUrl != null) {
+                return TikTokVideoData(
+                    id = trackId.toString(), title = title,
+                    author = author, authorId = authorId,
+                    thumbnail = thumbnail, duration = duration,
+                    videoUrl = mediaUrl, videoUrlNoWatermark = null, audioUrl = mediaUrl
+                )
+            }
+            return null
         }
-        return null
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "SoundCloud API v2 failed", e)
         return null
     }
@@ -85,33 +86,34 @@ private fun extractFromSoundCloudApiV1(url: String): TikTokVideoData? {
             .header("User-Agent", MOBILE_UA)
             .header("Accept", "application/json")
             .get().build()
-        val response = extractorClient.newCall(request).execute()
-        val body = response.body?.string() ?: return null
-        if (!response.isSuccessful) return null
+        extractorClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
 
-        val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
-        val data = adapter.fromJson(body) ?: return null
+            val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
+            val data = adapter.fromJson(body) ?: return null
 
-        val trackId = data["id"] as? Number ?: return null
-        val title = data["title"]?.toString() ?: ""
-        val author = (data["user"] as? Map<*, *>)?.get("username")?.toString() ?: ""
-        val authorId = (data["user"] as? Map<*, *>)?.get("permalink")?.toString() ?: ""
-        val thumbnail = data["artwork_url"]?.toString()
-            ?: (data["user"] as? Map<*, *>)?.get("avatar_url")?.toString() ?: ""
-        val duration = (data["duration"] as? Number)?.toLong()?.div(1000) ?: 0L
+            val trackId = data["id"] as? Number ?: return null
+            val title = data["title"]?.toString() ?: ""
+            val author = (data["user"] as? Map<*, *>)?.get("username")?.toString() ?: ""
+            val authorId = (data["user"] as? Map<*, *>)?.get("permalink")?.toString() ?: ""
+            val thumbnail = data["artwork_url"]?.toString()
+                ?: (data["user"] as? Map<*, *>)?.get("avatar_url")?.toString() ?: ""
+            val duration = (data["duration"] as? Number)?.toLong()?.div(1000) ?: 0L
 
-        val streamUrl = data["stream_url"]?.toString()
-        if (streamUrl != null) {
-            val finalUrl = "$streamUrl?client_id=$clientId"
-            return TikTokVideoData(
-                id = trackId.toString(), title = title,
-                author = author, authorId = authorId,
-                thumbnail = thumbnail, duration = duration,
-                videoUrl = finalUrl, videoUrlNoWatermark = null, audioUrl = finalUrl
-            )
+            val streamUrl = data["stream_url"]?.toString()
+            if (streamUrl != null) {
+                val finalUrl = "$streamUrl?client_id=$clientId"
+                return TikTokVideoData(
+                    id = trackId.toString(), title = title,
+                    author = author, authorId = authorId,
+                    thumbnail = thumbnail, duration = duration,
+                    videoUrl = finalUrl, videoUrlNoWatermark = null, audioUrl = finalUrl
+                )
+            }
+            return null
         }
-        return null
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "SoundCloud API v1 failed", e)
         return null
     }
@@ -123,33 +125,35 @@ private fun extractSoundCloudClientId(): String? {
             .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
             .get().build()
 
-        val response = extractorClient.newCall(request).execute()
-        val html = response.body?.string() ?: return null
-        if (!response.isSuccessful) return null
+        extractorClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val html = response.body?.string() ?: return null
 
-        val scriptPattern = Pattern.compile(
-            """<script[^>]*src=["']([^"']*?/assets/[^"']*?\.js)["']""",
-            Pattern.CASE_INSENSITIVE
-        )
-        val matcher = scriptPattern.matcher(html)
-        while (matcher.find()) {
-            val scriptUrl = matcher.group(1)
-            if (scriptUrl != null) {
-                val fullUrl = if (scriptUrl.startsWith("//")) "https:$scriptUrl"
-                    else if (scriptUrl.startsWith("/")) "https://soundcloud.com$scriptUrl"
-                    else scriptUrl
-                try {
-                    val jsRequest = Request.Builder().url(fullUrl)
-                        .header("User-Agent", "Mozilla/5.0")
-                        .get().build()
-                    val jsResponse = extractorClient.newCall(jsRequest).execute()
-                    val jsContent = jsResponse.body?.string() ?: continue
-                    val idMatch = Regex("""client_id["']:\s*["']([a-zA-Z0-9]+)["']""").find(jsContent)
-                    if (idMatch != null) return idMatch.groupValues[1]
-                } catch (_: Exception) { continue }
+            val scriptPattern = Pattern.compile(
+                """<script[^>]*src=["']([^"']*?/assets/[^"']*?\.js)["']""",
+                Pattern.CASE_INSENSITIVE
+            )
+            val matcher = scriptPattern.matcher(html)
+            while (matcher.find()) {
+                val scriptUrl = matcher.group(1)
+                if (scriptUrl != null) {
+                    val fullUrl = if (scriptUrl.startsWith("//")) "https:$scriptUrl"
+                        else if (scriptUrl.startsWith("/")) "https://soundcloud.com$scriptUrl"
+                        else scriptUrl
+                    try {
+                        val jsRequest = Request.Builder().url(fullUrl)
+                            .header("User-Agent", "Mozilla/5.0")
+                            .get().build()
+                        extractorClient.newCall(jsRequest).execute().use { jsResponse ->
+                            val jsContent = jsResponse.body?.string() ?: return@use
+                            val idMatch = Regex("""client_id["']:\s*["']([a-zA-Z0-9]+)["']""").find(jsContent)
+                            if (idMatch != null) return idMatch.groupValues[1]
+                        }
+                    } catch (_: Throwable) { continue }
+                }
             }
         }
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "extractSoundCloudClientId failed", e)
     }
     return null

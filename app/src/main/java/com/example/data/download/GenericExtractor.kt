@@ -176,20 +176,21 @@ private fun extractFromGenericScriptData(html: String, pageUrl: String): TikTokV
                     val jsRequest = Request.Builder().url(fullJsUrl)
                         .header("User-Agent", "Mozilla/5.0")
                         .get().build()
-                    val jsResponse = extractorClient.newCall(jsRequest).execute()
-                    val jsContent = jsResponse.body?.string() ?: continue
-                    if (!jsResponse.isSuccessful) continue
+                    extractorClient.newCall(jsRequest).execute().use { jsResponse ->
+                        if (!jsResponse.isSuccessful) return@use
+                        val jsContent = jsResponse.body?.string() ?: return@use
 
-                    val jsUrlMatch = Regex("""https?://[^"'\s<>]*\.(mp4|m3u8|webm)[^"'\s<>]*""").find(jsContent)
-                    if (jsUrlMatch != null) {
-                        val videoUrl = jsUrlMatch.value
-                        return TikTokVideoData(
-                            id = "", title = "", author = "", authorId = "",
-                            thumbnail = "", duration = 0L,
-                            videoUrl = videoUrl, videoUrlNoWatermark = videoUrl, audioUrl = null
-                        )
+                        val jsUrlMatch = Regex("""https?://[^"'\s<>]*\.(mp4|m3u8|webm)[^"'\s<>]*""").find(jsContent)
+                        if (jsUrlMatch != null) {
+                            val videoUrl = jsUrlMatch.value
+                            return TikTokVideoData(
+                                id = "", title = "", author = "", authorId = "",
+                                thumbnail = "", duration = 0L,
+                                videoUrl = videoUrl, videoUrlNoWatermark = videoUrl, audioUrl = null
+                            )
+                        }
                     }
-                } catch (_: Exception) { continue }
+                } catch (_: Throwable) { continue }
             }
         }
     } catch (e: Exception) {

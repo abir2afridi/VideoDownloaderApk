@@ -57,6 +57,7 @@ android {
     buildConfig = true
   }
   testOptions { unitTests { isIncludeAndroidResources = true } }
+  packaging { jniLibs { useLegacyPackaging = true } }
 }
 
 // Configure the Secrets Gradle Plugin to use .env and .env.example files
@@ -115,6 +116,8 @@ dependencies {
   implementation(libs.logging.interceptor)
   implementation(libs.moshi.kotlin)
   implementation(libs.okhttp)
+  implementation(libs.youtubedl.android)
+  implementation(libs.youtubedl.ffmpeg)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
   testImplementation(libs.androidx.compose.ui.test.junit4)

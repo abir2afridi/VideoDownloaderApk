@@ -6,8 +6,6 @@ import okhttp3.Request
 object VideoExtractor {
     fun extract(url: String): Result<TikTokVideoData> {
         return try {
-            TikTokCookieStore.seed()
-
             val isInstagram = url.contains("instagram.com") || url.contains("instagr.am")
             val isFacebook = url.contains("facebook.com") || url.contains("fb.watch") || url.contains("fb.com")
             val isTwitter = url.contains("twitter.com") || url.contains("x.com") || url.contains("t.co/")
@@ -21,14 +19,25 @@ object VideoExtractor {
             val isTiktok = url.contains("tiktok.com") || url.contains("vt.tiktok.com") || url.contains("vm.tiktok.com")
 
             if (isInstagram) {
+                val ytDlpResult = YtDlpExtractor.extract(url)
+                if (ytDlpResult != null) return Result.success(ytDlpResult)
+                Log.w(EXTRACTOR_TAG, "yt-dlp failed for Instagram, trying custom extractor")
                 val result = extractInstagram(url)
-                if (result != null) return Result.success(result)
-                return Result.failure(Exception("Could not extract Instagram video. The video may be private or the post is restricted."))
+                return if (result != null) Result.success(result)
+                else Result.failure(Exception("Could not extract Instagram video."))
             }
 
             if (isFacebook) {
+                val ytDlpResult = YtDlpExtractor.extract(url)
+                if (ytDlpResult != null) return Result.success(ytDlpResult)
+                Log.w(EXTRACTOR_TAG, "yt-dlp failed for Facebook, trying custom extractor")
                 val result = extractFacebook(url)
                 if (result != null) return Result.success(result)
+                val genericFallback = extractGeneric(url)
+                if (genericFallback != null) {
+                    Log.d(EXTRACTOR_TAG, "Success via generic fallback for Facebook: ${genericFallback.title}")
+                    return Result.success(genericFallback)
+                }
                 return Result.failure(Exception("Could not extract Facebook video. The video may be private or the link is invalid."))
             }
 
@@ -91,6 +100,7 @@ object VideoExtractor {
             }
 
             if (isTiktok) {
+                TikTokCookieStore.seed()
                 val tikResult = extractTikTok(url)
                 if (tikResult != null) {
                     Log.d(EXTRACTOR_TAG, "Success via TikTok extraction: ${tikResult.title}")
@@ -100,7 +110,7 @@ object VideoExtractor {
             }
 
             return Result.failure(Exception("Could not extract video from the provided URL."))
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e(EXTRACTOR_TAG, "Video extraction failed", e)
             return Result.failure(e)
         }

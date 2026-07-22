@@ -55,35 +55,36 @@ private fun extractFromVimeoApi(url: String): TikTokVideoData? {
             .header("Accept", "application/json")
             .get().build()
 
-        val response = extractorClient.newCall(request).execute()
-        val body = response.body?.string() ?: return null
-        if (!response.isSuccessful) return null
+        extractorClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
 
-        val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
-        val data = adapter.fromJson(body) ?: return null
+            val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
+            val data = adapter.fromJson(body) ?: return null
 
-        val title = data["title"]?.toString() ?: ""
-        val author = data["author_name"]?.toString() ?: ""
-        val authorId = data["author_url"]?.toString() ?: ""
-        val thumbnail = data["thumbnail_url"]?.toString() ?: ""
-        val duration = (data["duration"] as? Number)?.toLong() ?: 0L
-        val videoId = data["video_id"]?.toString() ?: data["id"]?.toString() ?: ""
+            val title = data["title"]?.toString() ?: ""
+            val author = data["author_name"]?.toString() ?: ""
+            val authorId = data["author_url"]?.toString() ?: ""
+            val thumbnail = data["thumbnail_url"]?.toString() ?: ""
+            val duration = (data["duration"] as? Number)?.toLong() ?: 0L
+            val videoId = data["video_id"]?.toString() ?: data["id"]?.toString() ?: ""
 
-        val playerUrl = data["player_url"]?.toString()
-        var videoUrl: String? = data["url"]?.toString()
+            val playerUrl = data["player_url"]?.toString()
+            var videoUrl: String? = data["url"]?.toString()
 
-        if (videoUrl.isNullOrBlank() && playerUrl != null) {
-            videoUrl = playerUrl
+            if (videoUrl.isNullOrBlank() && playerUrl != null) {
+                videoUrl = playerUrl
+            }
+
+            if (!videoUrl.isNullOrBlank()) {
+                return TikTokVideoData(
+                    id = videoId, title = title, author = author, authorId = authorId,
+                    thumbnail = thumbnail, duration = duration,
+                    videoUrl = videoUrl, videoUrlNoWatermark = videoUrl, audioUrl = null
+                )
+            }
         }
-
-        if (!videoUrl.isNullOrBlank()) {
-            return TikTokVideoData(
-                id = videoId, title = title, author = author, authorId = authorId,
-                thumbnail = thumbnail, duration = duration,
-                videoUrl = videoUrl, videoUrlNoWatermark = videoUrl, audioUrl = null
-            )
-        }
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "Vimeo API failed", e)
     }
     return null

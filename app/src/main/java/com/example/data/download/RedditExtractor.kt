@@ -35,19 +35,20 @@ private fun extractFromRedditJson(url: String): TikTokVideoData? {
             .header("Accept", "application/json")
             .get().build()
 
-        val response = extractorClient.newCall(request).execute()
-        val body = response.body?.string() ?: return null
-        if (!response.isSuccessful) return null
+        extractorClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
 
-        val listAdapter = extractorMoshi.adapter<List<Any?>>(Types.newParameterizedType(List::class.java, Any::class.java))
-        val rootList = listAdapter.fromJson(body) ?: return null
-        val first = rootList.firstOrNull() as? Map<*, *> ?: return null
-        val data = first["data"] as? Map<*, *> ?: return null
-        val children = data["children"] as? List<*> ?: return null
-        val firstChild = children.firstOrNull() as? Map<*, *> ?: return null
-        val childData = firstChild["data"] as? Map<*, *> ?: return null
-        return parseRedditPost(childData)
-    } catch (e: Exception) {
+            val listAdapter = extractorMoshi.adapter<List<Any?>>(Types.newParameterizedType(List::class.java, Any::class.java))
+            val rootList = listAdapter.fromJson(body) ?: return null
+            val first = rootList.firstOrNull() as? Map<*, *> ?: return null
+            val data = first["data"] as? Map<*, *> ?: return null
+            val children = data["children"] as? List<*> ?: return null
+            val firstChild = children.firstOrNull() as? Map<*, *> ?: return null
+            val childData = firstChild["data"] as? Map<*, *> ?: return null
+            return parseRedditPost(childData)
+        }
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "Reddit JSON API failed", e)
         return null
     }
@@ -147,21 +148,22 @@ private fun extractFromRedditOembed(url: String): TikTokVideoData? {
             .header("User-Agent", "Mozilla/5.0")
             .get().build()
 
-        val response = extractorClient.newCall(request).execute()
-        val body = response.body?.string() ?: return null
-        if (!response.isSuccessful) return null
+        extractorClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
 
-        val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
-        val root = adapter.fromJson(body) ?: return null
-        val htmlEmbed = root["html"]?.toString() ?: ""
+            val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
+            val root = adapter.fromJson(body) ?: return null
+            val htmlEmbed = root["html"]?.toString() ?: ""
 
-        val srcMatch = Regex("""src=["']([^"']+)["']""").find(htmlEmbed)
-        if (srcMatch != null) {
-            val embedUrl = srcMatch.groupValues[1]
-            val embedResult = extractReddit(embedUrl)
-            if (embedResult != null) return embedResult
+            val srcMatch = Regex("""src=["']([^"']+)["']""").find(htmlEmbed)
+            if (srcMatch != null) {
+                val embedUrl = srcMatch.groupValues[1]
+                val embedResult = extractReddit(embedUrl)
+                if (embedResult != null) return embedResult
+            }
         }
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "Reddit oEmbed failed", e)
     }
     return null

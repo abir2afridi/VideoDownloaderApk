@@ -185,20 +185,36 @@ fun getDefaultHeaders(isMobile: Boolean = false): Map<String, String> {
 fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): String? {
     return try {
         val requestBuilder = Request.Builder().url(url)
-        getDefaultHeaders(false).forEach { (k, v) -> requestBuilder.header(k, v) }
+        val isFacebook = url.contains("facebook.com") || url.contains("fb.watch") || url.contains("fb.com")
+        if (isFacebook) {
+            requestBuilder.header("User-Agent", "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
+            requestBuilder.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+            requestBuilder.header("Accept-Language", "en-US,en;q=0.9")
+            requestBuilder.header("Sec-Fetch-Dest", "document")
+            requestBuilder.header("Sec-Fetch-Mode", "navigate")
+            requestBuilder.header("Sec-Fetch-Site", "none")
+            requestBuilder.header("Sec-Ch-Ua", "\"Chromium\";v=\"125\", \"Google Chrome\";v=\"125\"")
+            requestBuilder.header("Sec-Ch-Ua-Mobile", "?1")
+            requestBuilder.header("Sec-Ch-Ua-Platform", "\"Android\"")
+            requestBuilder.header("Upgrade-Insecure-Requests", "1")
+        } else {
+            getDefaultHeaders(false).forEach { (k, v) -> requestBuilder.header(k, v) }
+        }
         val request = requestBuilder.build()
         val response = httpClient.newCall(request).execute()
-        if (!response.isSuccessful) {
-            Log.w(EXTRACTOR_TAG, "HTTP ${response.code} fetching page")
-            return null
+        response.use { resp ->
+            if (!resp.isSuccessful) {
+                Log.w(EXTRACTOR_TAG, "HTTP ${resp.code} fetching page")
+                return null
+            }
+            val html = resp.body?.string()
+            if (html.isNullOrBlank()) {
+                Log.w(EXTRACTOR_TAG, "Empty response body")
+                return null
+            }
+            html
         }
-        val html = response.body?.string()
-        if (html.isNullOrBlank()) {
-            Log.w(EXTRACTOR_TAG, "Empty response body")
-            return null
-        }
-        html
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "Failed to fetch page HTML", e)
         null
     }
@@ -208,9 +224,10 @@ fun resolveRedirect(url: String): String? {
     if (!url.contains("vt.tiktok.com") && !url.contains("vm.tiktok.com")) return url
     return try {
         val request = Request.Builder().url(url).build()
-        val response = extractorClient.newCall(request).execute()
-        response.request.url.toString()
-    } catch (e: Exception) {
+        extractorClient.newCall(request).execute().use { response ->
+            response.request.url.toString()
+        }
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "Redirect resolution failed", e)
         url
     }

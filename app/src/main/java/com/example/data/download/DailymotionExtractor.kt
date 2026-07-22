@@ -54,61 +54,52 @@ private fun extractFromDailymotionApi(videoId: String?): TikTokVideoData? {
             .header("Accept", "application/json")
             .get().build()
 
-        val response = extractorClient.newCall(request).execute()
-        val body = response.body?.string() ?: return null
-        if (!response.isSuccessful) return null
+        extractorClient.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) return null
+            val body = response.body?.string() ?: return null
 
-        val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
-        val data = adapter.fromJson(body) ?: return null
+            val adapter = extractorMoshi.adapter<Map<String, Any?>>(rootMapType)
+            val data = adapter.fromJson(body) ?: return null
 
-        val title = data["title"]?.toString() ?: ""
-        val owner = data["owner"] as? Map<*, *>
-        val author = owner?.get("screenname")?.toString()
-            ?: owner?.get("username")?.toString() ?: ""
-        val thumbnail = data["thumbnail_url"]?.toString()
-            ?: data["thumbnail_medium_url"]?.toString()
-            ?: data["poster_url"]?.toString() ?: ""
-        val duration = (data["duration"] as? Number)?.toLong() ?: 0L
+            val title = data["title"]?.toString() ?: ""
+            val owner = data["owner"] as? Map<*, *>
+            val author = owner?.get("screenname")?.toString()
+                ?: owner?.get("username")?.toString() ?: ""
+            val thumbnail = data["thumbnail_url"]?.toString()
+                ?: data["thumbnail_medium_url"]?.toString()
+                ?: data["poster_url"]?.toString() ?: ""
+            val duration = (data["duration"] as? Number)?.toLong() ?: 0L
 
-        val qualities = data["qualities"] as? Map<*, *>
-        var videoUrl: String? = null
-        val qualityPriority = listOf("2160", "1080", "720", "480", "360", "240", "auto")
+            val qualities = data["qualities"] as? Map<*, *>
+            var videoUrl: String? = null
+            val qualityPriority = listOf("2160", "1080", "720", "480", "360", "240", "auto")
 
-        if (qualities != null) {
-            for (quality in qualityPriority) {
-                val streams = qualities[quality] as? List<*>
-                if (streams != null) {
-                    var bestInQuality: String? = null
-                    var bestType = ""
-                    for (stream in streams) {
-                        val s = stream as? Map<*, *> ?: continue
-                        val url = s["url"]?.toString() ?: continue
-                        val type = s["type"]?.toString() ?: ""
-                        if (bestInQuality == null || type > bestType) {
-                            bestInQuality = url
-                            bestType = type
+            if (qualities != null) {
+                for (quality in qualityPriority) {
+                    val streams = qualities[quality] as? List<*>
+                    if (streams != null) {
+                        for (stream in streams) {
+                            val streamMap = stream as? Map<*, *>
+                            val url = streamMap?.get("url")?.toString()
+                            val type = streamMap?.get("type")?.toString() ?: ""
+                            if (!url.isNullOrBlank() && (type.contains("video") || type.isEmpty())) {
+                                videoUrl = url
+                                break
+                            }
                         }
                     }
-                    if (bestInQuality != null) {
-                        videoUrl = bestInQuality
-                        break
-                    }
+                    if (videoUrl != null) break
                 }
             }
-        }
 
-        if (videoUrl.isNullOrBlank()) {
-            videoUrl = data["url"]?.toString()
-        }
-
-        if (!videoUrl.isNullOrBlank()) {
+            if (videoUrl == null) return null
             return TikTokVideoData(
-                id = videoId, title = title, author = author, authorId = author,
+                id = videoId, title = title, author = author, authorId = "",
                 thumbnail = thumbnail, duration = duration,
                 videoUrl = videoUrl, videoUrlNoWatermark = videoUrl, audioUrl = null
             )
         }
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         Log.w(EXTRACTOR_TAG, "Dailymotion API failed", e)
     }
     return null

@@ -282,7 +282,7 @@ private suspend fun resolveUrl(url: String, onResult: (DownloadDialogState) -> U
                 )
             }
         )
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         onResult(
             DownloadDialogState.Error(
                 url = url,
