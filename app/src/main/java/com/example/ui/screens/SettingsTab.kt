@@ -80,9 +80,11 @@ fun SettingsTab(
     var showSearchScreen by remember { mutableStateOf(false) }
     var showContentScreen by remember { mutableStateOf(false) }
     var showHomepageScreen by remember { mutableStateOf(false) }
+    var showLookAndFeelScreen by remember { mutableStateOf(false) }
 
     BackHandler {
         when {
+            showLookAndFeelScreen -> showLookAndFeelScreen = false
             showPrivacyScreen -> showPrivacyScreen = false
             showSearchScreen -> showSearchScreen = false
             showContentScreen -> showContentScreen = false
@@ -144,28 +146,14 @@ fun SettingsTab(
 
             SettingsCard(
                 sectionIcon = Icons.Default.Palette,
-                sectionTitle = "UI & Customization"
+                sectionTitle = "Look & Feel"
             ) {
-                ThemeModeRow(selectedThemeMode, onModeSelected = { viewModel.selectedThemeMode.value = it })
-
-                SettingsToggleRow(
-                    icon = Icons.Default.BrightnessMedium,
-                    iconTint = Color(0xFFFF9800),
-                    title = "AMOLED Black Mode",
-                    subtitle = "Pure black background for OLED battery savings",
-                    checked = isAmoledMode,
-                    onCheckedChange = { viewModel.isAmoledMode.value = it },
-                    tag = "amoled_mode_switch"
-                )
-
-                AccentColorRow(
-                    selectedAccentColor = selectedAccentColor,
-                    onColorSelected = { viewModel.selectedAccentColor.value = it }
-                )
-
-                BrowserToggleRow(
-                    browserTogglePosition = browserTogglePosition,
-                    onPositionSelected = { viewModel.browserTogglePosition.value = it }
+                BrowserSettingsRow(
+                    icon = Icons.Default.Palette,
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    title = "Theme, Colors & Display",
+                    subtitle = "Theme mode, AMOLED, accent colors",
+                    onClick = { showLookAndFeelScreen = true }
                 )
             }
 
@@ -337,6 +325,12 @@ fun SettingsTab(
         BrowserHomepageSettingsScreen(
             viewModel = viewModel,
             onBack = { showHomepageScreen = false }
+        )
+    }
+    if (showLookAndFeelScreen) {
+        LookAndFeelScreen(
+            viewModel = viewModel,
+            onBack = { showLookAndFeelScreen = false }
         )
     }
 }
