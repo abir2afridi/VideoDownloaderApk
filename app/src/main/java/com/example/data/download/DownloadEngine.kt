@@ -7,6 +7,9 @@ import android.webkit.MimeTypeMap
 import android.util.Log
 import com.example.data.database.AppDatabase
 import com.example.data.database.DownloadEntity
+import com.yausername.youtubedl_android.DownloadProgressCallback
+import com.yausername.youtubedl_android.YoutubeDL
+import com.yausername.youtubedl_android.YoutubeDLRequest
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -167,6 +170,11 @@ object DownloadEngine {
         if (parentDir != null && !parentDir.exists() && !parentDir.mkdirs()) {
             Log.e(TAG, "Failed to create download directory: ${parentDir.absolutePath}")
             dao.updateDownload(download.copy(status = "FAILED", errorMessage = "Cannot create download directory"))
+            return@withContext
+        }
+
+        if (!download.sourceUrl.isNullOrBlank()) {
+            ytDlpDownload(context, download)
             return@withContext
         }
 
@@ -416,6 +424,83 @@ object DownloadEngine {
         } catch (e: Exception) {
             speedJob.cancel()
             throw e
+        }
+    }
+
+    private suspend fun ytDlpDownload(
+        context: Context,
+        download: DownloadEntity
+    ) = withContext(Dispatchers.IO) {
+        val db = AppDatabase.getDatabase(context)
+        val dao = db.downloadDao()
+        val file = File(download.filepath)
+
+        dao.updateDownload(download.copy(status = "DOWNLOADING", errorMessage = null))
+
+        val request = YoutubeDLRequest(download.sourceUrl!!)
+        request.addOption("-o", file.absolutePath)
+        request.addOption("--no-warnings")
+        request.addOption("--no-check-certificates")
+        request.addOption("--no-playlist")
+
+        val lastProgress = AtomicLong(0L)
+
+        val progressJob = launch {
+            var prevProgress = 0L
+            var prevTime = System.currentTimeMillis()
+            while (isActive) {
+                delay(500)
+                val current = dao.getDownloadById(download.id)
+                if (current != null && current.status == "DOWNLOADING") {
+                    val now = System.currentTimeMillis()
+                    val currentProgress = lastProgress.get()
+                    val elapsed = (now - prevTime) / 1000f
+                    val speed = if (elapsed > 0 && currentProgress >= prevProgress) {
+                        ((currentProgress - prevProgress) / elapsed).toLong()
+                    } else 0L
+                    prevProgress = currentProgress
+                    prevTime = now
+                    dao.updateDownload(current.copy(
+                        downloadedBytes = currentProgress,
+                        speed = speed
+                    ))
+                }
+            }
+        }
+
+        try {
+            YoutubeDL.getInstance().execute(request, object : DownloadProgressCallback {
+                override fun onProgressUpdate(progress: Float, etaInSeconds: Long, line: String?) {
+                    lastProgress.set((progress * 1_000_000).toLong())
+                }
+            })
+
+            progressJob.cancel()
+
+            MediaScannerConnection.scanFile(context, arrayOf(file.absolutePath), null, null)
+
+            val finalSize = if (file.exists()) file.length() else 0L
+            dao.updateDownload(
+                download.copy(
+                    status = "COMPLETED",
+                    totalBytes = finalSize,
+                    downloadedBytes = finalSize,
+                    speed = 0
+                )
+            )
+            Log.d(TAG, "yt-dlp download complete: ${download.filename}")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            progressJob.cancel()
+            throw e
+        } catch (e: Exception) {
+            progressJob.cancel()
+            Log.e(TAG, "yt-dlp download failed", e)
+            dao.updateDownload(
+                download.copy(
+                    status = "FAILED",
+                    errorMessage = e.localizedMessage ?: "yt-dlp download failed"
+                )
+            )
         }
     }
 

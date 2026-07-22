@@ -24,7 +24,8 @@ data class DownloadEntity(
     val integrityStatus: String? = "PENDING", // "OK", "MISSING", "CORRUPTED", "PENDING"
     val connectionHealth: String? = "PENDING", // "EXCELLENT", "GOOD", "POOR", "UNREACHABLE", "PENDING"
     val lastCheckedTime: Long = 0L,
-    val customHeaders: String? = null // JSON map of headers for sites requiring auth (Facebook, etc.)
+    val customHeaders: String? = null, // JSON map of headers for sites requiring auth (Facebook, etc.)
+    val sourceUrl: String? = null // Original page URL for yt-dlp download
 )
 
 @Entity(tableName = "bookmarks")

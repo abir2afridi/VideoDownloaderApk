@@ -987,7 +987,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                                                                 data?.videoUrlNoWatermark ?: data?.videoUrl ?: item.url
                                                             }
                                                         }
-                                                        viewModel.addDownload(resolved, item.title, customHeaders = resolvedHeaders)
+                                                        viewModel.addDownload(resolved, item.title, customHeaders = resolvedHeaders, sourceUrl = item.url)
                                                         successCount++
                                                     } catch (e: kotlinx.coroutines.CancellationException) {
                                                         throw e
@@ -1157,7 +1157,7 @@ fun BrowserTab(viewModel: MainViewModel) {
                                                                 data?.audioUrl ?: data?.videoUrlNoWatermark ?: data?.videoUrl ?: media.url
                                                             }
                                                         }
-                                                        viewModel.addDownload(resolved, media.title, isAudioOnly = true, customHeaders = resolvedHeaders)
+                                                        viewModel.addDownload(resolved, media.title, isAudioOnly = true, customHeaders = resolvedHeaders, sourceUrl = media.url)
                                                         success = true
                                                     } catch (e: kotlinx.coroutines.CancellationException) {
                                                         throw e

@@ -6,6 +6,17 @@ import okhttp3.Request
 object VideoExtractor {
     fun extract(url: String): Result<TikTokVideoData> {
         return try {
+            val result = extractInternal(url)
+            result.map { data ->
+                if (data.sourceUrl == null) data.copy(sourceUrl = url) else data
+            }
+        } catch (e: Throwable) {
+            Log.e(EXTRACTOR_TAG, "Video extraction failed", e)
+            return Result.failure(e)
+        }
+    }
+
+    private fun extractInternal(url: String): Result<TikTokVideoData> {
             val isInstagram = url.contains("instagram.com") || url.contains("instagr.am")
             val isFacebook = url.contains("facebook.com") || url.contains("fb.watch") || url.contains("fb.com")
             val isTwitter = url.contains("twitter.com") || url.contains("x.com") || url.contains("t.co/")
@@ -110,9 +121,5 @@ object VideoExtractor {
             }
 
             return Result.failure(Exception("Could not extract video from the provided URL."))
-        } catch (e: Throwable) {
-            Log.e(EXTRACTOR_TAG, "Video extraction failed", e)
-            return Result.failure(e)
-        }
     }
 }

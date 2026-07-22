@@ -24,7 +24,8 @@ data class TikTokVideoData(
     val videoUrl: String?,
     val videoUrlNoWatermark: String?,
     val audioUrl: String?,
-    val httpHeaders: Map<String, String>? = null
+    val httpHeaders: Map<String, String>? = null,
+    val sourceUrl: String? = null
 )
 
 object InstagramCookieStore {

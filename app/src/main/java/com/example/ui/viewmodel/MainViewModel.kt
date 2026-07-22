@@ -536,7 +536,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         isPrivate: Boolean = false,
         quality: String = "Auto",
         isAudioOnly: Boolean = false,
-        customHeaders: Map<String, String>? = null
+        customHeaders: Map<String, String>? = null,
+        sourceUrl: String? = null
     ) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
@@ -564,7 +565,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     category = category, status = "QUEUED",
                     totalBytes = 0L, downloadedBytes = 0L,
                     isPrivate = isPrivate, threads = threads, quality = quality,
-                    customHeaders = headersJson
+                    customHeaders = headersJson,
+                    sourceUrl = sourceUrl
                 )
                 val downloadId = dao.insertDownload(download).toInt()
                 DownloadEngine.startDownload(getApplication(), downloadId)
