@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.annotation.SuppressLint
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -9,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -327,6 +329,7 @@ private fun ConcurrentFragmentsDialog(
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.height(16.dp))
+                val interactionSource = remember { MutableInteractionSource() }
                 Slider(
                     value = sliderValue,
                     onValueChange = { sliderValue = it },
@@ -334,6 +337,7 @@ private fun ConcurrentFragmentsDialog(
                     valueRange = 0f..1f,
                     thumb = {
                         SliderDefaults.Thumb(
+                            interactionSource = interactionSource,
                             thumbSize = DpSize(4.dp, 32.dp)
                         )
                     }
