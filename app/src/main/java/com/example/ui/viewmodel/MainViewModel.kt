@@ -96,6 +96,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ?: defaultDownloadPath(application)
     )
 
+    // ─── Network Settings ─────────────────────────────────────────────────────
+    val isRateLimit = MutableStateFlow(settingsPrefs.getBoolean("rate_limit", false))
+    val maxRate = MutableStateFlow(settingsPrefs.getString("max_rate", "1000") ?: "1000")
+    val isAria2c = MutableStateFlow(settingsPrefs.getBoolean("aria2c", false))
+    val isProxyEnabled = MutableStateFlow(settingsPrefs.getBoolean("proxy", false))
+    val proxyUrl = MutableStateFlow(settingsPrefs.getString("proxy_url", "") ?: "")
+    val concurrentFragments = MutableStateFlow(settingsPrefs.getInt("concurrent_fragments", 8))
+    val isForceIpv4 = MutableStateFlow(settingsPrefs.getBoolean("force_ipv4", false))
+    val isCookiesEnabled = MutableStateFlow(settingsPrefs.getBoolean("cookies", false))
+
     // ─── Download Format Settings ─────────────────────────────────────────────
     val isExtractAudio = MutableStateFlow(settingsPrefs.getBoolean("extract_audio", false))
     val isAudioConvert = MutableStateFlow(settingsPrefs.getBoolean("audio_convert", false))
@@ -240,6 +250,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persistFlow(browserTogglePosition){ putString("browser_toggle_pos", it) }
         persistFlow(isForceDarkWeb)       { putBoolean("force_dark_web", it) }
         persistFlow(downloadFolderPath)   { putString("download_path", it) }
+
+        // Persist network settings
+        persistFlow(isRateLimit)           { putBoolean("rate_limit", it) }
+        persistFlow(maxRate)               { putString("max_rate", it) }
+        persistFlow(isAria2c)              { putBoolean("aria2c", it) }
+        persistFlow(isProxyEnabled)        { putBoolean("proxy", it) }
+        persistFlow(proxyUrl)              { putString("proxy_url", it) }
+        persistFlow(concurrentFragments)   { putInt("concurrent_fragments", it) }
+        persistFlow(isForceIpv4)           { putBoolean("force_ipv4", it) }
+        persistFlow(isCookiesEnabled)      { putBoolean("cookies", it) }
 
         // Persist download format settings
         persistFlow(isExtractAudio)        { putBoolean("extract_audio", it) }

@@ -88,6 +88,7 @@ fun SettingsTab(
     var showHomepageScreen by remember { mutableStateOf(false) }
     var showLookAndFeelScreen by remember { mutableStateOf(false) }
     var showFormatScreen by remember { mutableStateOf(false) }
+    var showNetworkScreen by remember { mutableStateOf(false) }
 
     val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
     var showBatteryHint by remember {
@@ -118,6 +119,7 @@ fun SettingsTab(
         when {
             showLookAndFeelScreen -> showLookAndFeelScreen = false
             showFormatScreen -> showFormatScreen = false
+            showNetworkScreen -> showNetworkScreen = false
             showPrivacyScreen -> showPrivacyScreen = false
             showSearchScreen -> showSearchScreen = false
             showContentScreen -> showContentScreen = false
@@ -245,6 +247,20 @@ fun SettingsTab(
                         )
                     }
                 }
+            }
+
+            // Network Configuration
+            SettingsCard(
+                sectionIcon = Icons.Default.SettingsEthernet,
+                sectionTitle = "Network"
+            ) {
+                BrowserSettingsRow(
+                    icon = Icons.Default.Wifi,
+                    iconTint = Color(0xFF2196F3),
+                    title = "Network Configuration",
+                    subtitle = "Rate limit, proxy, aria2, concurrent fragments",
+                    onClick = { showNetworkScreen = true }
+                )
             }
 
             SettingsCard(
@@ -440,6 +456,12 @@ fun SettingsTab(
         FormatSettingsScreen(
             viewModel = viewModel,
             onBack = { showFormatScreen = false }
+        )
+    }
+    if (showNetworkScreen) {
+        NetworkSettingsScreen(
+            viewModel = viewModel,
+            onBack = { showNetworkScreen = false }
         )
     }
 }
