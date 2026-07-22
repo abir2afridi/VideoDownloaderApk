@@ -297,6 +297,7 @@ private fun ProxyInputDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ConcurrentFragmentsDialog(
     currentFragments: Int,
