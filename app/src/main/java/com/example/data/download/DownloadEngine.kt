@@ -2,6 +2,8 @@ package com.example.data.download
 
 import android.content.Context
 import android.media.MediaScannerConnection
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.StatFs
 import android.webkit.MimeTypeMap
 import android.util.Log
@@ -460,6 +462,35 @@ object DownloadEngine {
         request.addOption("--user-agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36")
         request.addOption("--extractor-retries", "3")
         request.addOption("--retries", "5")
+
+        // Apply network settings from preferences
+        val prefs = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("rate_limit", false)) {
+            val maxRate = prefs.getString("max_rate", "1000") ?: "1000"
+            if (maxRate.toIntOrNull() != null && maxRate.toInt() in 1..1_000_000) {
+                request.addOption("-r", "${maxRate}K")
+            }
+        }
+        if (prefs.getBoolean("proxy", false)) {
+            val proxyUrl = prefs.getString("proxy_url", "") ?: ""
+            if (proxyUrl.isNotBlank()) {
+                request.addOption("--proxy", proxyUrl)
+            }
+        }
+        if (prefs.getBoolean("aria2c", false)) {
+            request.addOption("--downloader", "libaria2c.so")
+        } else {
+            val fragments = prefs.getInt("concurrent_fragments", 8)
+            if (fragments > 1) {
+                request.addOption("--concurrent-fragments", fragments)
+            }
+        }
+        if (prefs.getBoolean("force_ipv4", false)) {
+            request.addOption("-4")
+        }
+        if (prefs.getBoolean("cookies", false)) {
+            request.addOption("--cookies", context.cacheDir.resolve("cookies.txt").absolutePath)
+        }
 
         val lastProgress = AtomicLong(0L)
 
