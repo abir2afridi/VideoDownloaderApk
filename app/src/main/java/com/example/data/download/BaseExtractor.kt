@@ -197,6 +197,7 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
     return try {
         val requestBuilder = Request.Builder().url(url)
         val isFacebook = url.contains("facebook.com") || url.contains("fb.watch") || url.contains("fb.com")
+        val isPinterest = url.contains("pinterest.com") || url.contains("pin.it")
         if (isFacebook) {
             requestBuilder.header("User-Agent", "Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
             requestBuilder.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
@@ -212,6 +213,32 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
             if (fbCookies.isNotBlank()) {
                 requestBuilder.header("Cookie", fbCookies)
             }
+        } else if (isPinterest) {
+            // =========================================================================
+            // PINTEREST HEADERS — DO NOT REMOVE
+            // =========================================================================
+            // PROBLEM: Pinterest detects bare OkHttp requests and returns a JavaScript
+            // rendered shell WITHOUT the relay data or JSON-LD video URLs.
+            // Without these headers, extractPinterest() gets empty HTML → all 5 strategies fail.
+            //
+            // SOLUTION: Send full browser-like headers so Pinterest returns the server-side
+            // rendered HTML with embedded video data (relay scripts + JSON-LD VideoObject).
+            //
+            // RULES:
+            // - NEVER remove Sec-Fetch-* headers — Pinterest checks them
+            // - NEVER remove Sec-Ch-Ua headers — Pinterest checks them
+            // - Use desktop UA (not mobile) for full video data
+            // =========================================================================
+            requestBuilder.header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36")
+            requestBuilder.header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8")
+            requestBuilder.header("Accept-Language", "en-US,en;q=0.9")
+            requestBuilder.header("Sec-Fetch-Dest", "document")
+            requestBuilder.header("Sec-Fetch-Mode", "navigate")
+            requestBuilder.header("Sec-Fetch-Site", "none")
+            requestBuilder.header("Sec-Ch-Ua", "\"Chromium\";v=\"125\", \"Google Chrome\";v=\"125\"")
+            requestBuilder.header("Sec-Ch-Ua-Mobile", "?0")
+            requestBuilder.header("Sec-Ch-Ua-Platform", "\"Windows\"")
+            requestBuilder.header("Upgrade-Insecure-Requests", "1")
         } else {
             getDefaultHeaders(false).forEach { (k, v) -> requestBuilder.header(k, v) }
         }
@@ -244,12 +271,28 @@ fun fetchPageHtml(url: String, httpClient: OkHttpClient = extractorClient): Stri
 }
 
 fun resolveRedirect(url: String): String? {
+    // =========================================================================
+    // REDIRECT RESOLUTION — DO NOT REMOVE pin.it SUPPORT
+    // =========================================================================
+    // PROBLEM: pin.it short URLs (e.g. pin.it/2ima6B8Wm) were never resolved to
+    // full pinterest.com/pin/{id}/ URLs. extractPinId() could not extract the
+    // pin ID, and fetchPageHtml() got the wrong page.
+    //
+    // FIX: Added isShortPinterest check alongside existing TikTok short URL handling.
+    // Both use the same approach: follow the redirect to get the final canonical URL.
+    //
+    // RULES:
+    // - NEVER remove pin.it from the short URL list
+    // - pin.it redirects → pinterest.com/pin/{id}/sent/... (with invite code)
+    // - The pin ID is in the path: /pin/{numeric_id}/
+    // =========================================================================
     val isShortTikTok = url.contains("vt.tiktok.com") ||
                         url.contains("vm.tiktok.com") ||
                         url.contains("v.tiktok.com") ||
                         url.contains("/t/") ||
                         (url.contains("tiktok.com") && !url.contains("/video/") && !url.contains("/item/"))
-    if (!isShortTikTok) return url
+    val isShortPinterest = url.contains("pin.it/")
+    if (!isShortTikTok && !isShortPinterest) return url
     return try {
         val request = Request.Builder()
             .url(url)
