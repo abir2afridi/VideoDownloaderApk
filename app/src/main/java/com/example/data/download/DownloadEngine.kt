@@ -70,6 +70,33 @@ object DownloadEngine {
                     .header("Connection", "keep-alive")
                 val isFacebookCdn = originalUrl.contains("fbcdn") || originalUrl.contains("scontent")
                 if (isFacebookCdn) {
+                    // =========================================================================
+                    // FACEBOOK 403 FIX — DO NOT DELETE OR MODIFY THIS BLOCK
+                    // =========================================================================
+                    // PROBLEM: Facebook CDN (fbcdn.net / scontent) returns HTTP 403 Forbidden
+                    // when downloading video files. This happens because Facebook's CDN
+                    // rate-limits requests that use a browser User-Agent string.
+                    //
+                    // ROOT CAUSE: Facebook checks the User-Agent header on CDN requests.
+                    // Browser UAs (Chrome, Firefox etc.) trigger 403 because Facebook treats
+                    // them as potential scrapers/bots. Only the official Facebook crawler
+                    // UA "facebookexternalhit/1.1" is allowed without rate-limiting.
+                    //
+                    // SOLUTION (from yt-dlp issue #8197 — the authoritative fix):
+                    // 1. Use User-Agent: facebookexternalhit/1.1 (NOT a browser UA)
+                    // 2. Set Referer: https://www.facebook.com/ (required by CDN)
+                    // 3. Inject Facebook session cookies from FacebookCookieStore
+                    //
+                    // WHY OTHER APPS WORK: Apps like SnapSave/FDown use server-side proxies
+                    // that send the correct UA + cookies. We achieve the same by using the
+                    // crawler UA directly from the Android client.
+                    //
+                    // RULES:
+                    // - NEVER change this UA to a browser string for fbcdn/scontent URLs
+                    // - NEVER remove the Referer header for Facebook CDN requests
+                    // - NEVER remove the Cookie injection for Facebook requests
+                    // - If 403 returns, first check if cookies are fresh (re-login via Settings)
+                    // =========================================================================
                     requestBuilder.header("User-Agent", "facebookexternalhit/1.1")
                     requestBuilder.header("Referer", "https://www.facebook.com/")
                     val fbCookies = FacebookCookieStore.getCookies()

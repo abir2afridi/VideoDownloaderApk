@@ -1,5 +1,48 @@
 package com.example.data.download
 
+// =========================================================================
+// FACEBOOK VIDEO EXTRACTION — DO NOT DELETE OR MODIFY WITHOUT READING
+// =========================================================================
+// PROBLEM: Facebook video download fails with HTTP 403 Forbidden.
+//
+// WHY IT HAPPENS:
+// 1. Facebook CDN (fbcdn.net) requires specific request headers — a browser
+//    User-Agent triggers rate-limiting → 403 error
+// 2. Facebook share URLs (e.g. /share/r/xxx) need to be resolved to actual
+//    video page URLs before extraction
+// 3. Modern Facebook uses DASH (separate audio+video) — the CDN URL in the
+//    page HTML may be a manifest, not a direct MP4
+// 4. CDN tokens (oh=, oe=, _nc_sid=) expire in ~30-60 minutes — must
+//    download immediately after extraction
+//
+// HOW OTHER APPS SOLVE THIS (researched from SnapSave, FDown, yt-dlp):
+// - SnapSave: POST to server-side API, decode obfuscated JS, get CDN links
+// - FDown: Puppeteer-based headless browser scraping
+// - yt-dlp: Uses facebookexternalhit/1.1 UA + 250MB chunked downloads
+// - mbasic/m.facebook.com: Simpler HTML with direct <video> tags
+//
+// OUR SOLUTION (3-strategy extraction):
+// 1. m.facebook.com — mobile page has simplest HTML, direct <video> tags,
+//    and hd_src/sd_src in script data (MOST RELIABLE)
+// 2. www.facebook.com — desktop page with JSON-LD, script data patterns
+// 3. mbasic.facebook.com — oldest/simplest HTML format
+//
+// Each strategy tries 6 regex patterns to find the direct CDN URL:
+// - hd_src/sd_src (classic Facebook embed)
+// - playable_url (script data)
+// - DASH BaseURL (modern Facebook)
+// - <video> tag src (mbasic pages)
+// - Any fbcdn mp4 URL (catch-all)
+// - og:video meta tag (embed URL fallback)
+//
+// RULES:
+// - NEVER remove the m.facebook.com strategy — it's the most reliable
+// - NEVER use yt-dlp for Facebook extraction — it's slow, hangs, and gives 403
+// - NEVER change the User-Agent in fetchPageHtml for Facebook pages
+// - Always extract from CDN URL (contains "fbcdn") not embed URL
+// - If extraction fails, check if the video is private/region-locked
+// =========================================================================
+
 import android.util.Log
 import okhttp3.Request
 import java.util.regex.Pattern

@@ -28,7 +28,7 @@ An Android application for downloading videos and media from the web with a buil
 - **Multi-Platform Video Downloader** — Supports TikTok, Instagram, Facebook, Twitter/X, Reddit, Pinterest, SoundCloud, Vimeo, Twitch, Dailymotion, Tumblr, and ANY website via generic fallback extraction
 - **TikTok Downloader** — TikWM API + 9 fallback strategies for HD no-watermark, watermarked, and audio-only downloads
 - **Instagram Downloader** — 4-strategy chain: third-party API (primary), embed /captioned/, GraphQL with session warmup, regular embed
-- **Facebook Downloader** — Third-party API (yt-dlp based), embed plugin, touch/mbasic/mobile pages with cookie support
+- **Facebook Downloader** — 3-strategy custom extraction (m.facebook.com → www → mbasic), no yt-dlp dependency, User-Agent: facebookexternalhit/1.1 for CDN, cookie injection, share URL resolution
 - **Twitter/X Downloader** — og:video, twitter:player:stream, and CDN URL extraction
 - **Generic Fallback** — 10 extraction strategies for ANY website (og:video, JSON-LD, video tags, CDN patterns, etc.)
 - **Social Media Authentication** — WebView-based Instagram and Facebook login for cookie-captured extraction
@@ -124,7 +124,7 @@ app/src/main/java/com/example/
 |----------|------------------|
 | TikTok | TikWM API + 9 fallback strategies |
 | Instagram | Third-party API + embed + GraphQL |
-| Facebook | Third-party API + embed + touch/mbasic/mobile |
+| Facebook | m.facebook.com (primary) → www → mbasic, facebookexternalhit/1.1 UA, cookie injection |
 | Twitter/X | og:video + twitter:player:stream + CDN |
 | Reddit | JSON API extraction |
 | Pinterest | og:video + CDN |
